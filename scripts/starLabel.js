@@ -83,7 +83,7 @@
     if (w.appState?.lon != null) return +w.appState.lon;
     const ds = document.body?.dataset?.lon;
     if (ds) return +ds;
-    const ls = localStorage.getItem('sphere10_lon');
+    const ls = typeof store !== 'undefined' ? store.get('sphere10_lon') : null;
     if (ls) return +ls;
     return 139.65; // Yokohama fallback
   }

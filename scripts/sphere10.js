@@ -97,7 +97,9 @@ function initApp() {
           reverseEastWest: reverseEastWest,
           directionVisible: directionVisible
         };
-        localStorage.setItem('sphere10_settings', JSON.stringify(settings));
+        if (typeof store !== 'undefined') {
+          store.set('sphere10_settings', JSON.stringify(settings));
+        }
       } catch (e) {
         console.warn('設定の保存に失敗しました:', e);
       }
@@ -105,7 +107,7 @@ function initApp() {
 
     function loadSettings() {
       try {
-        const saved = localStorage.getItem('sphere10_settings');
+        const saved = typeof store !== 'undefined' ? store.get('sphere10_settings') : null;
         if (saved) {
           const settings = JSON.parse(saved);
           // 各値を復元（デフォルト値をフォールバック）
@@ -358,14 +360,26 @@ function initApp() {
     function initSectionToggles() {
       const sectionHeaders = document.querySelectorAll('.section-header');
       
-      // 初期状態をlocalStorageから読み込み、デフォルトは全て展開
-      const sectionStates = JSON.parse(localStorage.getItem('sectionStates')) || {
+      // 初期状態をストアから読み込み、デフォルトは全て展開
+      const defaultStates = {
         rotation: true,
         indicator: true,
         option: true,
         planets: true,
         location: true
       };
+      let sectionStates = { ...defaultStates };
+
+      if (typeof store !== 'undefined') {
+        const storedStates = store.get('sectionStates');
+        if (storedStates) {
+          try {
+            sectionStates = { ...defaultStates, ...JSON.parse(storedStates) };
+          } catch (error) {
+            console.warn('セクション状態の読み込みに失敗しました:', error);
+          }
+        }
+      }
 
       sectionHeaders.forEach(header => {
         const section = header.closest('.section');
@@ -385,9 +399,11 @@ function initApp() {
           section.classList.toggle('collapsed');
           content.classList.toggle('collapsed');
           
-          // 状態をlocalStorageに保存
+          // 状態をストアに保存
           sectionStates[sectionName] = isCollapsed; // 反転した値
-          localStorage.setItem('sectionStates', JSON.stringify(sectionStates));
+          if (typeof store !== 'undefined') {
+            store.set('sectionStates', JSON.stringify(sectionStates));
+          }
         };
 
         // タッチデバイス対応: イベント重複を防ぐ統一ハンドラー
