@@ -76,8 +76,7 @@ function initApp() {
     let latitude = 35.4333;
     let longitude = 139.65;
     let showAltGrid = true;
-    let showZenith = true;
-    let showNadir = false;
+    let showZenithNadir = true;
 
     // ★★★ 設定値記憶機能 ★★★
     function saveSettings() {
@@ -100,8 +99,7 @@ function initApp() {
           reverseEastWest: reverseEastWest,
           directionVisible: directionVisible,
           showAltGrid: showAltGrid,
-          showZenith: showZenith,
-          showNadir: showNadir
+          showZenithNadir: showZenithNadir
         };
         if (typeof store !== 'undefined') {
           store.set('sphere10_settings', JSON.stringify(settings));
@@ -116,6 +114,7 @@ function initApp() {
         const saved = typeof store !== 'undefined' ? store.get('sphere10_settings') : null;
         if (saved) {
           const settings = JSON.parse(saved);
+          let usedLegacyZenithNadir = false;
           // 各値を復元（デフォルト値をフォールバック）
           latitude = settings.latitude ?? 35.4333;
           rotationZ = settings.rotationZ ?? 0;
@@ -134,9 +133,21 @@ function initApp() {
           reverseEastWest = settings.reverseEastWest ?? false;
           directionVisible = settings.directionVisible ?? true;
           showAltGrid = settings.showAltGrid ?? showAltGrid;
-          showZenith = settings.showZenith ?? showZenith;
-          showNadir = settings.showNadir ?? showNadir;
+          const storedZenithNadir = normalizeStoredBoolean(settings.showZenithNadir);
+          if (typeof storedZenithNadir === 'boolean') {
+            showZenithNadir = storedZenithNadir;
+          } else {
+            const legacyZenith = normalizeStoredBoolean(settings.showZenith);
+            const legacyNadir = normalizeStoredBoolean(settings.showNadir);
+            if (typeof legacyZenith === 'boolean' || typeof legacyNadir === 'boolean') {
+              showZenithNadir = (legacyZenith === true) || (legacyNadir === true);
+              usedLegacyZenithNadir = true;
+            }
+          }
           console.log('設定を復元しました');
+          if (usedLegacyZenithNadir) {
+            saveSettings();
+          }
           return true;
         }
       } catch (e) {
@@ -179,6 +190,12 @@ function initApp() {
       }
     }
 
+    function normalizeStoredBoolean(value) {
+      if (value === true || value === 'true') return true;
+      if (value === false || value === 'false') return false;
+      return undefined;
+    }
+
     function setupPersistentToggle(element, key, defaultValue, onChange) {
       let currentValue = defaultValue;
       if (!element) {
@@ -203,6 +220,42 @@ function initApp() {
       });
 
       return currentValue;
+    }
+
+    function migrateZenithNadirPreference() {
+      if (typeof store === 'undefined' || !store || typeof store.get !== 'function') {
+        return undefined;
+      }
+
+      const sentinel = typeof Symbol === 'function' ? Symbol('zenithNadirMissing') : '__sphere10_zenith_nadir_missing__';
+      const storedCombined = store.get('showZenithNadir', sentinel);
+      const combinedBoolean = normalizeStoredBoolean(storedCombined);
+      if (typeof combinedBoolean === 'boolean') {
+        return combinedBoolean;
+      }
+
+      const legacyZenith = store.get('showZenith', sentinel);
+      const legacyNadir = store.get('showNadir', sentinel);
+      if (legacyZenith === sentinel && legacyNadir === sentinel) {
+        return undefined;
+      }
+
+      const legacyZenithBool = normalizeStoredBoolean(legacyZenith) === true;
+      const legacyNadirBool = normalizeStoredBoolean(legacyNadir) === true;
+      const mergedValue = legacyZenithBool || legacyNadirBool;
+
+      setStoredBoolean('showZenithNadir', mergedValue);
+
+      if (typeof store.remove === 'function') {
+        if (legacyZenith !== sentinel) {
+          store.remove('showZenith');
+        }
+        if (legacyNadir !== sentinel) {
+          store.remove('showNadir');
+        }
+      }
+
+      return mergedValue;
     }
 
     function updateAllUI() {
@@ -257,8 +310,7 @@ function initApp() {
     const ra12LinesToggle = document.getElementById('ra12LinesToggle');
     const declinationLinesToggle = document.getElementById('declinationLinesToggle');
     const altGridToggle = document.getElementById('altGridToggle');
-    const zenithToggle = document.getElementById('zenithToggle');
-    const nadirToggle = document.getElementById('nadirToggle');
+    const zenithNadirToggle = document.getElementById('zenithNadirToggle');
     let horizonVisible = horizonToggle.checked;
     let meridianVisible = meridianToggle.checked;
     let equatorVisible = equatorToggle.checked;
@@ -272,14 +324,12 @@ function initApp() {
         saveSettings();
       }
     });
-    showZenith = setupPersistentToggle(zenithToggle, 'showZenith', showZenith, (value, isInitial) => {
-      showZenith = value;
-      if (!isInitial) {
-        saveSettings();
-      }
-    });
-    showNadir = setupPersistentToggle(nadirToggle, 'showNadir', showNadir, (value, isInitial) => {
-      showNadir = value;
+    const migratedZenithNadir = migrateZenithNadirPreference();
+    if (typeof migratedZenithNadir === 'boolean') {
+      showZenithNadir = migratedZenithNadir;
+    }
+    showZenithNadir = setupPersistentToggle(zenithNadirToggle, 'showZenithNadir', showZenithNadir, (value, isInitial) => {
+      showZenithNadir = value;
       if (!isInitial) {
         saveSettings();
       }
@@ -346,8 +396,7 @@ function initApp() {
     if (planetLabelToggle) planetLabelToggle.checked = planetLabelsVisible;
     if (reverseEWToggle) reverseEWToggle.checked = reverseEastWest;
     if (altGridToggle) altGridToggle.checked = showAltGrid;
-    if (zenithToggle) zenithToggle.checked = showZenith;
-    if (nadirToggle) nadirToggle.checked = showNadir;
+    if (zenithNadirToggle) zenithNadirToggle.checked = showZenithNadir;
     if (directionToggle) directionToggle.checked = directionVisible;
 
     datetimeInput.addEventListener('change', () => {
@@ -1311,30 +1360,32 @@ function initApp() {
     }
 
     function drawZenithNadir() {
-      if (!showZenith && !showNadir) return;
+      if (!showZenithNadir) return;
+
+      const markerColor = "#ff0000";
+      const markerRadius = 2.5;
 
       function renderMarker(x, y, z, label, labelOffsetY) {
         ({ x, y, z } = applyAllRotations(x, y, z));
         const projected = project(x, y, z);
         if (!projected) return;
         ctx.beginPath();
-        ctx.arc(projected.sx, projected.sy, 4, 0, 2 * Math.PI);
+        ctx.arc(projected.sx, projected.sy, markerRadius, 0, 2 * Math.PI);
         ctx.fill();
+        ctx.stroke();
         ctx.fillText(label, projected.sx, projected.sy + labelOffsetY);
       }
 
       ctx.save();
-      ctx.fillStyle = "#dddddd";
-      ctx.font = "12px sans-serif";
+      ctx.fillStyle = markerColor;
+      ctx.strokeStyle = markerColor;
+      ctx.lineWidth = 1;
+      ctx.font = "bold 12px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      if (showZenith) {
-        renderMarker(0, 0, 1, "Z", -12);
-      }
-      if (showNadir) {
-        renderMarker(0, 0, -1, "N", 12);
-      }
+      renderMarker(0, 0, 1, "Z", -12);
+      renderMarker(0, 0, -1, "N", 12);
 
       ctx.restore();
     }
