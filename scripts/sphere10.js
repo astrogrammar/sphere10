@@ -75,6 +75,7 @@ function initApp() {
     let currentDate = new Date();
     let latitude = 35.4333;
     let longitude = 139.65;
+    let showAltGrid = false;
     let showZenith = true;
     let showNadir = false;
 
@@ -97,7 +98,10 @@ function initApp() {
           showBackSide: showBackSide,
           planetLabelsVisible: planetLabelsVisible,
           reverseEastWest: reverseEastWest,
-          directionVisible: directionVisible
+          directionVisible: directionVisible,
+          showAltGrid: showAltGrid,
+          showZenith: showZenith,
+          showNadir: showNadir
         };
         if (typeof store !== 'undefined') {
           store.set('sphere10_settings', JSON.stringify(settings));
@@ -129,6 +133,9 @@ function initApp() {
           planetLabelsVisible = settings.planetLabelsVisible ?? false;
           reverseEastWest = settings.reverseEastWest ?? false;
           directionVisible = settings.directionVisible ?? true;
+          showAltGrid = settings.showAltGrid ?? showAltGrid;
+          showZenith = settings.showZenith ?? showZenith;
+          showNadir = settings.showNadir ?? showNadir;
           console.log('設定を復元しました');
           return true;
         }
@@ -139,21 +146,63 @@ function initApp() {
     }
 
     function getStoredBoolean(key, defaultValue) {
-      if (typeof store === 'undefined') {
+      if (typeof store === 'undefined' || !store || typeof store.get !== 'function') {
         return defaultValue;
       }
-      const stored = store.get(key);
-      if (stored === null || stored === undefined) {
+      try {
+        const stored = store.get(key, defaultValue);
+        if (typeof stored === 'boolean') {
+          return stored;
+        }
+        if (stored === 'true') return true;
+        if (stored === 'false') return false;
+        return defaultValue;
+      } catch (error) {
+        console.warn('store.get に失敗しました:', error);
         return defaultValue;
       }
-      return stored === 'true';
     }
 
     function setStoredBoolean(key, value) {
-      if (typeof store === 'undefined') {
-        return;
+      if (typeof store === 'undefined' || !store || typeof store.set !== 'function') {
+        return false;
       }
-      store.set(key, value ? 'true' : 'false');
+      try {
+        store.set(key, value);
+        if (typeof console !== 'undefined' && typeof console.debug === 'function') {
+          console.debug(`[store] ${key}=${value}`);
+        }
+        return true;
+      } catch (error) {
+        console.warn('store.set に失敗しました:', error);
+        return false;
+      }
+    }
+
+    function setupPersistentToggle(element, key, defaultValue, onChange) {
+      let currentValue = defaultValue;
+      if (!element) {
+        if (typeof onChange === 'function') {
+          onChange(currentValue, true);
+        }
+        return currentValue;
+      }
+
+      currentValue = getStoredBoolean(key, element.checked ?? defaultValue);
+      element.checked = currentValue;
+      if (typeof onChange === 'function') {
+        onChange(currentValue, true);
+      }
+
+      element.addEventListener('change', () => {
+        const nextValue = element.checked;
+        setStoredBoolean(key, nextValue);
+        if (typeof onChange === 'function') {
+          onChange(nextValue, false);
+        }
+      });
+
+      return currentValue;
     }
 
     function updateAllUI() {
@@ -207,6 +256,7 @@ function initApp() {
     const eclipticBandToggle = document.getElementById('eclipticBandToggle');
     const ra12LinesToggle = document.getElementById('ra12LinesToggle');
     const declinationLinesToggle = document.getElementById('declinationLinesToggle');
+    const altGridToggle = document.getElementById('altGridToggle');
     const zenithToggle = document.getElementById('zenithToggle');
     const nadirToggle = document.getElementById('nadirToggle');
     let horizonVisible = horizonToggle.checked;
@@ -216,10 +266,24 @@ function initApp() {
     let eclipticBandVisible = eclipticBandToggle.checked;
     let ra12LinesVisible = ra12LinesToggle.checked;
     let declinationLinesVisible = declinationLinesToggle.checked;
-    showZenith = getStoredBoolean('showZenith', true);
-    showNadir = getStoredBoolean('showNadir', false);
-    if (zenithToggle) { zenithToggle.checked = showZenith; }
-    if (nadirToggle) { nadirToggle.checked = showNadir; }
+    showAltGrid = setupPersistentToggle(altGridToggle, 'showAltGrid', showAltGrid, (value, isInitial) => {
+      showAltGrid = value;
+      if (!isInitial) {
+        saveSettings();
+      }
+    });
+    showZenith = setupPersistentToggle(zenithToggle, 'showZenith', showZenith, (value, isInitial) => {
+      showZenith = value;
+      if (!isInitial) {
+        saveSettings();
+      }
+    });
+    showNadir = setupPersistentToggle(nadirToggle, 'showNadir', showNadir, (value, isInitial) => {
+      showNadir = value;
+      if (!isInitial) {
+        saveSettings();
+      }
+    });
     horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); });
     meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); });
     equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); });
@@ -227,20 +291,6 @@ function initApp() {
     eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); });
     ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); });
     declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); });
-    if (zenithToggle) {
-      zenithToggle.addEventListener('change', () => {
-        showZenith = zenithToggle.checked;
-        setStoredBoolean('showZenith', showZenith);
-        saveSettings();
-      });
-    }
-    if (nadirToggle) {
-      nadirToggle.addEventListener('change', () => {
-        showNadir = nadirToggle.checked;
-        setStoredBoolean('showNadir', showNadir);
-        saveSettings();
-      });
-    }
 
     // ★★★ 方角表示設定 ★★★
     const directionToggle = document.getElementById('directionToggle');
@@ -278,6 +328,7 @@ function initApp() {
     if (backToggle) backToggle.checked = showBackSide;
     if (planetLabelToggle) planetLabelToggle.checked = planetLabelsVisible;
     if (reverseEWToggle) reverseEWToggle.checked = reverseEastWest;
+    if (altGridToggle) altGridToggle.checked = showAltGrid;
     if (zenithToggle) zenithToggle.checked = showZenith;
     if (nadirToggle) nadirToggle.checked = showNadir;
     if (directionToggle) directionToggle.checked = directionVisible;
