@@ -72,9 +72,11 @@ function initApp() {
     let isPlaying = true;
     let playbackSpeed = 1; 
 
-    let currentDate = new Date(); 
-    let latitude = 35.4333; 
+    let currentDate = new Date();
+    let latitude = 35.4333;
     let longitude = 139.65;
+    let showZenith = true;
+    let showNadir = false;
 
     // ★★★ 設定値記憶機能 ★★★
     function saveSettings() {
@@ -136,6 +138,24 @@ function initApp() {
       return false;
     }
 
+    function getStoredBoolean(key, defaultValue) {
+      if (typeof store === 'undefined') {
+        return defaultValue;
+      }
+      const stored = store.get(key);
+      if (stored === null || stored === undefined) {
+        return defaultValue;
+      }
+      return stored === 'true';
+    }
+
+    function setStoredBoolean(key, value) {
+      if (typeof store === 'undefined') {
+        return;
+      }
+      store.set(key, value ? 'true' : 'false');
+    }
+
     function updateAllUI() {
       // スライダー値の更新
       if (rotationZSlider) {
@@ -187,6 +207,8 @@ function initApp() {
     const eclipticBandToggle = document.getElementById('eclipticBandToggle');
     const ra12LinesToggle = document.getElementById('ra12LinesToggle');
     const declinationLinesToggle = document.getElementById('declinationLinesToggle');
+    const zenithToggle = document.getElementById('zenithToggle');
+    const nadirToggle = document.getElementById('nadirToggle');
     let horizonVisible = horizonToggle.checked;
     let meridianVisible = meridianToggle.checked;
     let equatorVisible = equatorToggle.checked;
@@ -194,6 +216,10 @@ function initApp() {
     let eclipticBandVisible = eclipticBandToggle.checked;
     let ra12LinesVisible = ra12LinesToggle.checked;
     let declinationLinesVisible = declinationLinesToggle.checked;
+    showZenith = getStoredBoolean('showZenith', true);
+    showNadir = getStoredBoolean('showNadir', false);
+    if (zenithToggle) { zenithToggle.checked = showZenith; }
+    if (nadirToggle) { nadirToggle.checked = showNadir; }
     horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); });
     meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); });
     equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); });
@@ -201,6 +227,20 @@ function initApp() {
     eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); });
     ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); });
     declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); });
+    if (zenithToggle) {
+      zenithToggle.addEventListener('change', () => {
+        showZenith = zenithToggle.checked;
+        setStoredBoolean('showZenith', showZenith);
+        saveSettings();
+      });
+    }
+    if (nadirToggle) {
+      nadirToggle.addEventListener('change', () => {
+        showNadir = nadirToggle.checked;
+        setStoredBoolean('showNadir', showNadir);
+        saveSettings();
+      });
+    }
 
     // ★★★ 方角表示設定 ★★★
     const directionToggle = document.getElementById('directionToggle');
@@ -238,6 +278,8 @@ function initApp() {
     if (backToggle) backToggle.checked = showBackSide;
     if (planetLabelToggle) planetLabelToggle.checked = planetLabelsVisible;
     if (reverseEWToggle) reverseEWToggle.checked = reverseEastWest;
+    if (zenithToggle) zenithToggle.checked = showZenith;
+    if (nadirToggle) nadirToggle.checked = showNadir;
     if (directionToggle) directionToggle.checked = directionVisible;
 
     datetimeInput.addEventListener('change', () => {
@@ -1151,6 +1193,35 @@ function initApp() {
       }
     }
 
+    function drawZenithNadir() {
+      if (!showZenith && !showNadir) return;
+
+      function renderMarker(x, y, z, label, labelOffsetY) {
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const projected = project(x, y, z);
+        if (!projected) return;
+        ctx.beginPath();
+        ctx.arc(projected.sx, projected.sy, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillText(label, projected.sx, projected.sy + labelOffsetY);
+      }
+
+      ctx.save();
+      ctx.fillStyle = "#dddddd";
+      ctx.font = "12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      if (showZenith) {
+        renderMarker(0, 0, 1, "Z", -12);
+      }
+      if (showNadir) {
+        renderMarker(0, 0, -1, "N", 12);
+      }
+
+      ctx.restore();
+    }
+
     async function initStars() {
       const rawStars = await loadStars();
       starsData = rawStars
@@ -1212,10 +1283,11 @@ function initApp() {
       drawRA12Lines();
       drawDeclinationLines();
       drawCardinalDirections();
-      
+      drawZenithNadir();
+
       // 太陽系天体の描画（常に更新が必要）
-      drawSun();    
-      drawMoon();   
+      drawSun();
+      drawMoon();
       drawPlanets();
       
       // ★★★ デバッグ情報更新 ★★★
