@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="favicon_io/favicon.ico">
+  <link rel="stylesheet" href="./css/ui.css">
+  <title>Sphere10 立体天球ホロスコープ v1.9.1</title>
+  <style>
+    /* 基本的なページレイアウト（天体表示部分のみ） */
+    a:link, a:visited {
+      color: #fff;
+      text-decoration-color: white;
+    }
+    body { 
+      background: #333; 
+      margin: 0; 
+      overflow: hidden; 
+      color: #ccc; 
+      font-family: sans-serif; 
+      margin: 20px 0; 
+    }
+    canvas { 
+      display: block; 
+      margin: 0 auto; 
+      background: #000; 
+    }
+    footer {
+      display: block; 
+      width: 600px; 
+      font-size: 9pt; 
+      margin: 20px auto; 
+      text-align: center; 
+    }
+  </style>
+</head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZR8BCNMELX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ZR8BCNMELX');
+</script>
+<!-- Google tag (gtag.js) -->
+<body>
+  <div class="controls">
+    <!-- 操作パネルヘッダー: タイトル＋最小化ボタン -->
+    <div class="control-header">
+      <button id="togglePanelButton">−</button>
+    </div>
+    <div class="controls-content">
+
+    <div class="button-group">
+      <button id="playButton" class="active">PLAY</button>
+      <button id="pauseButton">STOP</button>
+    </div>
+    <div class="button-group">
+      <button id="fastForwardButton">FF</button>
+      <button id="reverseButton">REWIND</button>
+    </div>
+    
+    <!-- 日付、場所入力有効化 -->
+    <div id="localArea">
+      <h3>場所 Location</h3>
+      <label for="locationInput">都市名 City</label>
+      <input type="text" id="locationInput" value="横浜市">
+      <button id="setLocationButton">場所を設定</button>
+    </div>
+    
+    <!-- 回転セクション -->
+    <div class="section">
+      <h3 class="section-header" data-section="rotation">
+        <span>回転 ROTATION</span>
+        <span class="toggle-icon">▼</span>
+      </h3>
+      <div class="section-content" id="rotation-content">
+        <!-- スライダーは残しつつ、マウスドラッグで操作可能にします -->
+        <label>水平 Horizontal
+          <input type="range" id="rotationZSlider" min="-180" max="180" value="0"> 
+          <span id="rotationZVal">0°</span>
+        </label>
+        <label>南北 North/South
+          <input type="range" id="rotationYSlider" min="-90" max="90" value="0"> 
+          <span id="rotationYVal">0°</span>
+        </label>
+        <label id="EastWest">東西 East/West
+          <input type="range" id="rotationEWSlider" min="-90" max="90" value="0"> 
+          <span id="rotationEWVal">0°</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 指標セクション -->
+    <div class="section">
+      <h3 class="section-header" data-section="indicator">
+        <span>指標 INDICATOR</span>
+        <span class="toggle-icon">▼</span>
+      </h3>
+      <div class="section-content" id="indicator-content">
+        <!-- ★★★ ここから追加した表示系トグル ★★★ -->
+        <label>
+          <input type="checkbox" id="horizonToggle" checked>
+          地平線 Horizon
+        </label>
+        <label>
+          <input type="checkbox" id="meridianToggle" checked>
+          子午線 Meridian
+        </label>
+        <label>
+          <input type="checkbox" id="equatorToggle" checked>
+          赤道 Equator
+        </label>
+        <label>
+          <input type="checkbox" id="eclipticToggle" checked>
+          黄道 Ecliptic
+        </label>
+        <label>
+          <input type="checkbox" id="eclipticBandToggle" checked>
+          獣帯 Zodiac
+        </label>
+        <label>
+          <input type="checkbox" id="ra12LinesToggle" checked>
+          赤経 RA
+        </label>
+        <label>
+          <input type="checkbox" id="declinationLinesToggle" checked>
+          赤緯 DEC
+        </label>
+        <!-- ★★★ 追加部分ここまで ★★★ -->
+      </div>
+    </div>
+
+    <!-- 補助セクション -->
+    <div class="section">
+      <h3 class="section-header" data-section="option">
+        <span>補助 OPTION</span>
+        <span class="toggle-icon">▼</span>
+      </h3>
+      <div class="section-content" id="option-content">
+        <!-- ★★★ 既存の表示系トグル ★★★ -->
+        <label>
+          <input type="checkbox" id="starToggle" checked>
+          恒星 Fixed Stars
+        </label>
+        <label>
+          <input type="checkbox" id="backToggle">
+          透明 Transparent
+        </label>
+        <!-- ★★★ 惑星ラベルのトグルを追加 ★★★ -->
+        <label>
+          <input type="checkbox" id="planetLabelToggle">
+          惑星 Planet Labels
+        </label>
+        <!-- ★★★ 新規追加: 東西反転トグル ★★★ -->
+        <label>
+          <input type="checkbox" id="reverseEWToggle">
+          反転 Flip ◀|▶
+        </label>
+        <!-- ★★★ 方角表示設定 ★★★ -->
+        <label>
+          <input type="checkbox" id="directionToggle" checked>
+          方角 Direction
+        </label>
+        <div style="display:none">
+          <label>文字サイズ
+            <input type="range" id="directionTextSize" min="10" max="60" value="30">
+            <span id="directionTextSizeVal">16px</span>
+          </label>
+          <label>文字色
+            <input type="color" id="directionTextColor" value="#ff0000">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 惑星位置セクション -->
+    <div class="section">
+      <h3 class="section-header" data-section="planets">
+        <span>惑星位置</span>
+        <span class="toggle-icon">▼</span>
+      </h3>
+      <div class="section-content" id="planets-content">
+        <div id="localinfo">
+          <label for="datetimeInput">Date <input type="datetime-local" id="datetimeInput"></label>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 位置設定セクション -->
+    <div class="section">
+      <h3 class="section-header" data-section="latitude">
+        <span>緯度 LATITUDE</span>
+        <span class="toggle-icon">▼</span>
+      </h3>
+      <div class="section-content" id="location-content">
+        <!-- 緯度: 数値入力 -->
+        <label for="latitudeInput"> 
+        <input
+          type="number"
+          id="latitudeInput"
+          min="-90"
+          max="90"
+          step="0.1"
+          value="35.4"
+          size="4"
+        /> 緯度 Latitude</label>
+      </div>
+    </div>
+    
+    <div id="contact">
+    <a href="https://forms.gle/gUFJBuh3cxngWHYo6" target="_blank">
+      contact
+    </a><br>
+    astrogrammar.com
+    </div>
+    </div>
+  </div>
+  
+  <canvas id="sky"></canvas>
+  <script src="./scripts/astronomy.browser.min.js"></script>
+  <script src="./scripts/sphere10.js"></script>
+<div></div>
+<footer>astrogrammar.com</footer>
+</body>
+</html>

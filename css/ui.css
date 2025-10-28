@@ -1,0 +1,482 @@
+/* ========================================
+   Sphere10 立体天球ホロスコープ UI Design
+   洗練されたコントロールパネル用CSS
+   ======================================== */
+
+/* セクション折りたたみ機能のスタイル - オリジナルデザイン重視版 */
+.section {
+  margin-bottom: 0;
+}
+
+.section-header {
+  /* オリジナルのh3スタイルをベースに最小限の変更 */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 24px 20px 12px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+  transition: color 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.section:first-child .section-header {
+  margin-top: 16px;
+}
+
+.section-header:hover {
+  color: #e2e8f0;
+}
+
+/* タッチデバイス対応: タッチ時の視覚フィードバック */
+.section-header:active {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+}
+
+/* タッチデバイス対応: タッチ時の視覚フィードバック */
+.section-header:active {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+}
+
+.toggle-icon {
+  font-size: 10px;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  opacity: 0.6;
+  margin-left: 8px;
+}
+
+.section-content {
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), 
+              opacity 0.3s ease;
+  max-height: 1000px;
+  opacity: 1;
+}
+
+.section-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.section.collapsed .toggle-icon {
+  transform: rotate(-90deg);
+}
+
+/* モダンなコントロールパネルの基本スタイル */
+.controls {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: linear-gradient(135deg, rgba(40, 44, 52, 0.95), rgba(30, 34, 42, 0.95));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 0;
+  margin: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 
+              0 2px 8px rgba(0, 0, 0, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  opacity: 1;
+  width: 280px;
+  max-width: 320px;
+  overflow: hidden;
+  max-height: 90vh;
+  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.controls.minimized {
+  height: 60px;
+  width: 120px;
+  overflow: hidden;
+}
+
+/* コントロールパネルのヘッダー */
+.control-header {
+  padding: 16px 20px 12px 20px;
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(60, 68, 82, 0.6), rgba(45, 52, 65, 0.6));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px 16px 0 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.control-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: 0.5px;
+}
+
+/* トグルボタンのデザイン - 小さいサイズに統一 */
+#togglePanelButton {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+#togglePanelButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+#togglePanelButton:active {
+  transform: translateY(0);
+}
+
+/* パネルコンテンツ */
+.controls-content {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: calc(90vh - 60px);
+}
+
+/* セクション見出し */
+.controls h3 {
+  margin: 24px 20px 12px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+}
+
+.controls h3:first-of-type {
+  margin-top: 16px;
+}
+
+/* ボタングループ */
+.button-group {
+  display: flex;
+  gap: 8px;
+  margin: 0 20px 16px 20px;
+}
+
+/* メインボタンのスタイル */
+.controls button {
+  background: linear-gradient(135deg, rgba(71, 85, 105, 0.8), rgba(51, 65, 85, 0.8));
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  color: #e2e8f0;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+  min-height: 36px;
+  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.controls button:hover {
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.9), rgba(71, 85, 105, 0.9));
+  border-color: rgba(148, 163, 184, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.controls button.active {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-color: #1e40af;
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.controls button.active:hover {
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.5);
+}
+
+/* ラベルとフォーム要素 */
+.controls label {
+  display: block;
+  margin: 0 20px 12px 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.controls label input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+/* カスタムチェックボックス - 光る効果付き */
+.controls input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(148, 163, 184, 0.4);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  margin-right: 8px;
+  transition: all 0.3s ease;
+  vertical-align: -2px;
+}
+
+.controls input[type="checkbox"]:checked {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-color: #059669;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4),
+              0 0 6px rgba(16, 185, 129, 0.2),
+              inset 0 0 4px rgba(255, 255, 255, 0.1);
+  animation: checkboxGlow 2s ease-in-out infinite alternate;
+}
+
+.controls input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -1px;
+  left: 2px;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.controls input[type="checkbox"]:hover {
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+/* チェックボックスの光る効果アニメーション */
+@keyframes checkboxGlow {
+  from {
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.3),
+                0 0 4px rgba(16, 185, 129, 0.15),
+                inset 0 0 4px rgba(255, 255, 255, 0.1);
+  }
+  to {
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.5),
+                0 0 8px rgba(16, 185, 129, 0.3),
+                inset 0 0 4px rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* スライダー */
+.controls input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(71, 85, 105, 0.6);
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 8px 0 4px 0;
+}
+
+.controls input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.controls input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(59, 130, 246, 0.4);
+}
+
+.controls input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* テキスト入力 */
+.controls input[type="text"],
+.controls input[type="datetime-local"],
+.controls input[type="color"],
+.controls input[type="number"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.8);
+  color: #e2e8f0;
+  font-size: 12px;
+  margin-top: 4px;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.controls input[type="text"]:focus,
+.controls input[type="datetime-local"]:focus,
+.controls input[type="number"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* 数値入力の特別なスタイリング */
+.controls input[type="number"] {
+  /* Chrome, Safari, Edge の矢印ボタンを非表示 */
+  -webkit-appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.controls input[type="number"]::-webkit-outer-spin-button,
+.controls input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox の矢印ボタンを非表示 */
+.controls input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* 緯度入力のラベル特別スタイル */
+.controls label[for="latitudeInput"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.controls label[for="latitudeInput"] input {
+  width: 80px;
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+/* スライダー値表示 - 青系の色に変更 */
+.controls span[id$="Val"] {
+  font-size: 11px;
+  color: #60a5fa;
+  margin-left: 8px;
+  font-weight: 500;
+  text-shadow: 0 0 4px rgba(96, 165, 250, 0.3);
+}
+
+/* コンタクト情報 */
+.controls #contact {
+  padding: 16px 20px 20px 20px;
+  margin: 20px 0 0 0;
+  font-size: 11px;
+  text-align: center;
+  color: #64748b;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.controls #contact a {
+  color: #3b82f6;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.controls #contact a:hover {
+  color: #60a5fa;
+}
+
+/* 特別な設定項目の非表示 */
+.controls #localArea,
+.controls #EastWest {
+  display: none;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .controls {
+    width: 260px;
+    left: 10px;
+    top: 10px;
+  }
+}
+
+@media (max-height: 600px) {
+  .controls {
+    max-height: 85vh;
+  }
+}
+
+/* スクロールバーのカスタマイズ */
+.controls::-webkit-scrollbar {
+  width: 6px;
+}
+
+.controls::-webkit-scrollbar-track {
+  background: rgba(71, 85, 105, 0.3);
+  border-radius: 3px;
+}
+
+.controls::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 3px;
+}
+
+.controls::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}
+
+/* アニメーション効果 */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.controls {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* ダークモード最適化 */
+@media (prefers-color-scheme: dark) {
+  .controls {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 
+                0 2px 8px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+}
