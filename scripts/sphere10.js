@@ -75,7 +75,7 @@ function initApp() {
     let currentDate = new Date();
     let latitude = 35.4333;
     let longitude = 139.65;
-    let showAltGrid = false;
+    let showAltGrid = true;
     let showZenith = true;
     let showNadir = false;
 
@@ -314,6 +314,23 @@ function initApp() {
 
     // ★★★ 設定読み込みとUI同期 ★★★
     loadSettings(); // 保存された設定を読み込み
+
+    const altGridStoreSentinel = typeof Symbol === 'function' ? Symbol('altGridMissing') : '__sphere10_alt_missing__';
+    let storedAltGrid = altGridStoreSentinel;
+    if (typeof store !== 'undefined' && store && typeof store.get === 'function') {
+      storedAltGrid = store.get('showAltGrid', altGridStoreSentinel);
+    }
+
+    if (storedAltGrid === altGridStoreSentinel) {
+      setStoredBoolean('showAltGrid', showAltGrid);
+    } else if (typeof storedAltGrid === 'boolean') {
+      showAltGrid = storedAltGrid;
+    } else if (storedAltGrid === 'true') {
+      showAltGrid = true;
+    } else if (storedAltGrid === 'false') {
+      showAltGrid = false;
+    }
+
     updateAllUI();  // UIに反映
     
     // チェックボックスの状態を復元
@@ -930,9 +947,9 @@ function initApp() {
     }
 
     function drawHorizon() {
-      if (!horizonVisible) return; 
-      ctx.strokeStyle = "green"; 
-      ctx.lineWidth = 1; 
+      if (!horizonVisible) return;
+      ctx.strokeStyle = "green";
+      ctx.lineWidth = 1;
       ctx.setLineDash([]);
       ctx.beginPath();
       let started = false;
@@ -960,6 +977,55 @@ function initApp() {
         }
       }
       if (started) { ctx.stroke(); }
+    }
+
+    function drawAltitudeGrid() {
+      if (!showAltGrid) return;
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+
+      const currentTime = window.currentFrameTime || Date.now();
+      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
+      const steps = isRotating ? 72 : 144;
+
+      function drawAltitudeCircle(altDeg) {
+        const alt = altDeg * Math.PI / 180;
+        let started = false;
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const az = i * (2 * Math.PI / steps);
+          let x = Math.cos(alt) * Math.sin(az);
+          let y = -Math.cos(alt) * Math.cos(az);
+          let z = Math.sin(alt);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            if (!started) {
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+            } else {
+              ctx.lineTo(p.sx, p.sy);
+            }
+          } else if (started) {
+            ctx.stroke();
+            started = false;
+            ctx.beginPath();
+          }
+        }
+        if (started) {
+          ctx.stroke();
+        }
+      }
+
+      for (let altDeg = 10; altDeg <= 80; altDeg += 10) {
+        drawAltitudeCircle(altDeg);
+        drawAltitudeCircle(-altDeg);
+      }
+
+      ctx.restore();
     }
 
     const epsilon = 23.439281 * Math.PI / 180;
@@ -1325,6 +1391,7 @@ function initApp() {
       // 背景要素の描画（一部を条件付きで最適化）
       drawStars();
       drawHorizon();
+      drawAltitudeGrid();
       drawMeridian();
       drawEquator();
       drawEcliptic();
