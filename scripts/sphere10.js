@@ -79,6 +79,13 @@ function initApp() {
     let showZenith = true;
     let showNadir = false;
 
+    const altitudeGridRads = (() => {
+      const degrees = [];
+      for (let altDeg = 10; altDeg <= 80; altDeg += 10) degrees.push(altDeg);
+      for (let altDeg = -10; altDeg >= -80; altDeg -= 10) degrees.push(altDeg);
+      return degrees.map((deg) => deg * Math.PI / 180);
+    })();
+
     // ★★★ 設定値記憶機能 ★★★
     function saveSettings() {
       try {
@@ -1161,7 +1168,7 @@ function initApp() {
     // ★★★ 赤緯線 (Declination Lines) の描画 ★★★
     function drawDeclinationLines() {
       if (!declinationLinesVisible) return;
-      
+
       // 赤道よりも20%暗い赤色を使用
       ctx.strokeStyle = "#a32929";
       ctx.lineWidth = 1;
@@ -1204,6 +1211,49 @@ function initApp() {
       
       // 点線リセット
       ctx.setLineDash([]);
+    }
+
+    function drawAltitudeGrid() {
+      if (!showAltGrid) return;
+
+      const currentTime = window.currentFrameTime || Date.now();
+      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
+      const steps = isRotating ? 36 : 72;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(70, 130, 180, 0.8)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+
+      for (const altRad of altitudeGridRads) {
+        let started = false;
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const az = (i / steps) * 2 * Math.PI;
+          let x = Math.cos(altRad) * Math.sin(az);
+          let y = -Math.cos(altRad) * Math.cos(az);
+          let z = Math.sin(altRad);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            if (!started) {
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+            } else {
+              ctx.lineTo(p.sx, p.sy);
+            }
+          } else if (started) {
+            ctx.stroke();
+            started = false;
+            ctx.beginPath();
+          }
+        }
+        if (started) {
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
     }
 
     // ★★★ 方角 (Cardinal Directions) の描画 ★★★
@@ -1332,6 +1382,7 @@ function initApp() {
       drawZodiacDivisions();
       drawZodiacSymbols();
       drawRA12Lines();
+      drawAltitudeGrid();
       drawDeclinationLines();
       drawCardinalDirections();
       drawZenithNadir();
