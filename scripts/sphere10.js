@@ -77,6 +77,8 @@ function initApp() {
     let longitude = 139.65;
     let showZenith = true;
     let showNadir = false;
+    let altitudeGridVisible = getStoredBoolean('showAltGrid', false);
+    const ALTITUDE_GRID_LEVELS = [10, 20, 30, 40, 50, 60, 70, 80];
 
     // ★★★ 設定値記憶機能 ★★★
     function saveSettings() {
@@ -93,6 +95,7 @@ function initApp() {
           eclipticBandVisible: eclipticBandVisible,
           ra12LinesVisible: ra12LinesVisible,
           declinationLinesVisible: declinationLinesVisible,
+          showAltGrid: altitudeGridVisible,
           starsVisible: starsVisible,
           showBackSide: showBackSide,
           planetLabelsVisible: planetLabelsVisible,
@@ -102,6 +105,7 @@ function initApp() {
         if (typeof store !== 'undefined') {
           store.set('sphere10_settings', JSON.stringify(settings));
         }
+        setStoredBoolean('showAltGrid', altitudeGridVisible);
       } catch (e) {
         console.warn('設定の保存に失敗しました:', e);
       }
@@ -124,11 +128,13 @@ function initApp() {
           eclipticBandVisible = settings.eclipticBandVisible ?? true;
           ra12LinesVisible = settings.ra12LinesVisible ?? true;
           declinationLinesVisible = settings.declinationLinesVisible ?? true;
+          altitudeGridVisible = settings.showAltGrid ?? altitudeGridVisible;
           starsVisible = settings.starsVisible ?? true;
           showBackSide = settings.showBackSide ?? false;
           planetLabelsVisible = settings.planetLabelsVisible ?? false;
           reverseEastWest = settings.reverseEastWest ?? false;
           directionVisible = settings.directionVisible ?? true;
+          setStoredBoolean('showAltGrid', altitudeGridVisible);
           console.log('設定を復元しました');
           return true;
         }
@@ -207,6 +213,7 @@ function initApp() {
     const eclipticBandToggle = document.getElementById('eclipticBandToggle');
     const ra12LinesToggle = document.getElementById('ra12LinesToggle');
     const declinationLinesToggle = document.getElementById('declinationLinesToggle');
+    const altitudeGridToggle = document.getElementById('altitudeGridToggle');
     const zenithToggle = document.getElementById('zenithToggle');
     const nadirToggle = document.getElementById('nadirToggle');
     let horizonVisible = horizonToggle.checked;
@@ -216,6 +223,7 @@ function initApp() {
     let eclipticBandVisible = eclipticBandToggle.checked;
     let ra12LinesVisible = ra12LinesToggle.checked;
     let declinationLinesVisible = declinationLinesToggle.checked;
+    if (altitudeGridToggle) { altitudeGridToggle.checked = altitudeGridVisible; }
     showZenith = getStoredBoolean('showZenith', true);
     showNadir = getStoredBoolean('showNadir', false);
     if (zenithToggle) { zenithToggle.checked = showZenith; }
@@ -227,6 +235,13 @@ function initApp() {
     eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); });
     ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); });
     declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); });
+    if (altitudeGridToggle) {
+      altitudeGridToggle.addEventListener('change', () => {
+        altitudeGridVisible = altitudeGridToggle.checked;
+        setStoredBoolean('showAltGrid', altitudeGridVisible);
+        saveSettings();
+      });
+    }
     if (zenithToggle) {
       zenithToggle.addEventListener('change', () => {
         showZenith = zenithToggle.checked;
@@ -274,6 +289,7 @@ function initApp() {
     if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
     if (ra12LinesToggle) ra12LinesToggle.checked = ra12LinesVisible;
     if (declinationLinesToggle) declinationLinesToggle.checked = declinationLinesVisible;
+    if (altitudeGridToggle) altitudeGridToggle.checked = altitudeGridVisible;
     if (starToggle) starToggle.checked = starsVisible;
     if (backToggle) backToggle.checked = showBackSide;
     if (planetLabelToggle) planetLabelToggle.checked = planetLabelsVisible;
@@ -1110,7 +1126,7 @@ function initApp() {
     // ★★★ 赤緯線 (Declination Lines) の描画 ★★★
     function drawDeclinationLines() {
       if (!declinationLinesVisible) return;
-      
+
       // 赤道よりも20%暗い赤色を使用
       ctx.strokeStyle = "#a32929";
       ctx.lineWidth = 1;
@@ -1153,6 +1169,56 @@ function initApp() {
       
       // 点線リセット
       ctx.setLineDash([]);
+    }
+
+    function drawAltitudeGrid() {
+      if (!altitudeGridVisible) return;
+
+      const currentTime = window.currentFrameTime || Date.now();
+      const isFastMotion = (currentTime - (window.lastRotationTime || 0)) < 120;
+      const azStepDeg = isFastMotion ? 10 : 4;
+      const azStepRad = azStepDeg * Math.PI / 180;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(0, 180, 0, 0.45)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+
+      for (const altDeg of ALTITUDE_GRID_LEVELS) {
+        const altRad = altDeg * Math.PI / 180;
+        const cosAlt = Math.cos(altRad);
+        const sinAlt = Math.sin(altRad);
+        let started = false;
+
+        ctx.beginPath();
+
+        for (let az = 0; az <= Math.PI * 2 + 1e-6; az += azStepRad) {
+          let x = cosAlt * Math.sin(az);
+          let y = -cosAlt * Math.cos(az);
+          let z = sinAlt;
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+
+          if (p) {
+            if (!started) {
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+            } else {
+              ctx.lineTo(p.sx, p.sy);
+            }
+          } else if (started) {
+            ctx.stroke();
+            ctx.beginPath();
+            started = false;
+          }
+        }
+
+        if (started) {
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
     }
 
     // ★★★ 方角 (Cardinal Directions) の描画 ★★★
@@ -1274,6 +1340,7 @@ function initApp() {
       // 背景要素の描画（一部を条件付きで最適化）
       drawStars();
       drawHorizon();
+      drawAltitudeGrid();
       drawMeridian();
       drawEquator();
       drawEcliptic();
