@@ -1,0 +1,10 @@
+:root {
+  --chart-stroke: #888888;
+  --zodiac-symbol: #888888;
+  --planet-symbol: #ffffff;
+}
+
+#chartCanvas {
+  width: 500px;
+  height: 500px;
+}

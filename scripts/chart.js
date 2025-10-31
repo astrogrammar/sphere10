@@ -1,15 +1,21 @@
 // scripts/chart.js
 // ────────────────────────────────────────────────────────────────
 // 既存コード(sphere10.js)に一切触れず、右下キャンバスに
-// 「ホール・サイン・ハウス＋10天体記号」を白(#ffffff)で描画する。
-// 角(ASC/MC/IC/DSC)や度数は表示しない。
+// サインリングと惑星リングを描画する。角(ASC/MC/IC/DSC)や度数は表示しない。
 // トグルボタン #toggleChartBtn で #chartCanvas の表示/非表示を切替。
 // ────────────────────────────────────────────────────────────────
 (() => {
   'use strict';
 
   // ===== 設定値（色は要件どおり白固定） =====
-  const WHITE = '#ffffff';
+  const CANVAS_SIZE = 500;
+  const BACKGROUND_ALPHA = 0.6;
+  const SIGN_RING_R = 0.95;
+  const SIGN_BAND_INNER_R = 0.70;
+  const PLANET_RING_R = 0.55;
+
+  const DEFAULT_STROKE = '#888888';
+  const DEFAULT_PLANET = '#ffffff';
   const CANVAS_ID = 'chartCanvas';
   const TOGGLE_ID = 'toggleChartBtn';
 
@@ -109,70 +115,86 @@
     ctx.closePath();
   }
 
-  function drawChart(ctx, longitudes, ascLon) {
+  function getCssVar(name, fallback) {
+    const styles = getComputedStyle(document.documentElement);
+    const value = styles.getPropertyValue(name);
+    if (!value) return fallback;
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : fallback;
+  }
+
+  function angleToCanvas(angleDeg) {
+    return deg2rad(180 - angleDeg);
+  }
+
+  function drawChart(ctx, longitudes) {
     const W = ctx.canvas.width;
     const H = ctx.canvas.height;
     ctx.clearRect(0, 0, W, H);
     ctx.save();
 
     // 背景（半透明ダーク：白線が白地に溶けないため。要件は線と記号の色のみ白指定）
-    ctx.globalAlpha = 0.22;
+    ctx.globalAlpha = BACKGROUND_ALPHA;
     ctx.fillStyle = '#000000';
     roundedRect(ctx, 0, 0, W, H, 16);
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // 基本スタイル（白）
-    ctx.strokeStyle = WHITE;
-    ctx.fillStyle   = WHITE;
-    ctx.lineWidth   = 1.2;
+    const strokeColor = getCssVar('--chart-stroke', DEFAULT_STROKE);
+    const signColor = getCssVar('--zodiac-symbol', strokeColor);
+    const planetColor = getCssVar('--planet-symbol', DEFAULT_PLANET);
 
-    const cx = W/2, cy = H/2;
-    const R_outer  = Math.min(W, H)/2 - 16;
-    const R_inner  = R_outer * 0.82;
-    const R_planet = (R_outer + R_inner)/2;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2;
 
-    // 外輪・内輪
-    ctx.beginPath(); ctx.arc(cx, cy, R_outer, 0, Math.PI*2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, R_inner, 0, Math.PI*2); ctx.stroke();
+    const cx = W / 2;
+    const cy = H / 2;
+    const canvasRadius = Math.min(W, H) / 2;
+    const R_outer = canvasRadius * SIGN_RING_R;
+    const R_signInner = canvasRadius * SIGN_BAND_INNER_R;
+    const R_planet = canvasRadius * PLANET_RING_R;
 
-    // ホールサイン：ASCが属するサインを第1室へ（度数は描かない）
-    const ascSignIndex = Math.floor(norm360(ascLon)/30); // 0:牡羊
+    // 外輪・サイン内周・惑星リング
+    ctx.beginPath(); ctx.arc(cx, cy, R_outer, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R_signInner, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R_planet, 0, Math.PI * 2); ctx.stroke();
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // サイン記号は少しだけ小さめ
-    ctx.font = '16px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
+    const signTextRadius = (R_outer + R_signInner) / 2;
+
+    ctx.font = '20px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
+    ctx.fillStyle = signColor;
 
     for (let i = 0; i < 12; i++) {
-      const signIndex = (ascSignIndex + i) % 12;
-      // その室の開始黄経（30°刻み）
-      const startDeg = norm360(Math.floor(ascLon/30)*30 + i*30);
-      const midDeg   = norm360(startDeg + 15);
+      const boundaryAngle = norm360(i * 30 - 15);
+      const boundaryRad = angleToCanvas(boundaryAngle);
+      const x1 = cx + R_signInner * Math.cos(boundaryRad);
+      const y1 = cy + R_signInner * Math.sin(boundaryRad);
+      const x2 = cx + R_outer * Math.cos(boundaryRad);
+      const y2 = cy + R_outer * Math.sin(boundaryRad);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
 
-      // 区切り線
-      const a0 = deg2rad(startDeg - 90);
-      const x1 = cx + R_inner * Math.cos(a0);
-      const y1 = cy + R_inner * Math.sin(a0);
-      const x2 = cx + R_outer * Math.cos(a0);
-      const y2 = cy + R_outer * Math.sin(a0);
-      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-
-      // サイン記号
-      const am = deg2rad(midDeg - 90);
-      const sx = cx + (R_outer - 18) * Math.cos(am);
-      const sy = cy + (R_outer - 18) * Math.sin(am);
-      ctx.fillText(SIGN_GLYPHS[signIndex], sx, sy);
+      const centerAngle = norm360(i * 30);
+      const centerRad = angleToCanvas(centerAngle);
+      const sx = cx + signTextRadius * Math.cos(centerRad);
+      const sy = cy + signTextRadius * Math.sin(centerRad);
+      ctx.fillText(SIGN_GLYPHS[i], sx, sy);
     }
 
-    // 10天体（記号のみ、白）
-    ctx.font = '20px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
+    ctx.font = '22px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
+    ctx.fillStyle = planetColor;
+
     for (const p of PLANETS) {
       const lon = longitudes[p.key];
       if (typeof lon !== 'number') continue;
-      const a = deg2rad(lon - 90);
-      const x = cx + R_planet * Math.cos(a);
-      const y = cy + R_planet * Math.sin(a);
+      const rad = angleToCanvas(norm360(lon));
+      const x = cx + R_planet * Math.cos(rad);
+      const y = cy + R_planet * Math.sin(rad);
       ctx.fillText(p.glyph, x, y);
     }
 
@@ -186,17 +208,17 @@
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    if (canvas.width !== CANVAS_SIZE) canvas.width = CANVAS_SIZE;
+    if (canvas.height !== CANVAS_SIZE) canvas.height = CANVAS_SIZE;
+
     const date = getDateFromPage();
     const lat  = getLatitude();
     const lon  = getLongitude();
 
     // 並列計算（軽量）
-    const [longs, asc] = await Promise.all([
-      computeEclipticLongitudes(date),
-      computeAscendantLongitude(date, lat, lon)
-    ]);
+    const longs = await computeEclipticLongitudes(date);
 
-    drawChart(ctx, longs, asc);
+    drawChart(ctx, longs);
   }
 
   // ========= 初期化（トグル/イベント） =========
