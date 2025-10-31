@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Horoscope Chart Prototype</title>
+  <link rel="stylesheet" href="./chart.css" />
+</head>
+<body>
+  <main class="page">
+    <h1>Horoscope Chart Prototype</h1>
+    <p>Press <kbd>Ctrl</kbd> + <kbd>H</kbd> (or <kbd>⌘</kbd> + <kbd>H</kbd>) to toggle the chart.</p>
+  </main>
+
+  <div id="horoscope-chart" class="horoscope-chart" aria-hidden="true">
+    <canvas id="horoscope-canvas" width="500" height="500" aria-label="Astrology horoscope chart"></canvas>
+  </div>
+
+  <script src="./chart.js" type="module"></script>
+</body>
+</html>
