@@ -205,24 +205,33 @@
     const canvas = document.getElementById(CANVAS_ID);
     if (!canvas) return;
 
+    let visible = canvas.style.display !== 'none';
+    const show = async () => { canvas.style.display = 'block'; await renderOnce(); };
+    const hide = () => { canvas.style.display = 'none'; };
+
+    const toggle = async () => {
+      visible = !visible;
+      if (visible) await show(); else hide();
+    };
+
     // 初期表示：表示状態なら描画
-    if (canvas.style.display !== 'none') {
+    if (visible) {
       renderOnce();
     }
 
     // ボタンが存在すればトグル
     if (btn) {
-      let visible = canvas.style.display !== 'none';
-      const show = async () => { canvas.style.display = 'block'; await renderOnce(); };
-      const hide = () => { canvas.style.display = 'none'; };
-
-      const toggle = async () => {
-        visible = !visible;
-        if (visible) await show(); else hide();
-      };
       btn.addEventListener('click', toggle, { passive: true });
       btn.addEventListener('touchstart', (e)=>{ e.preventDefault(); toggle(); }, { passive:false });
     }
+
+    document.addEventListener('keydown', (event) => {
+      if (!event.ctrlKey || !event.metaKey) return;
+      if (event.key !== 'h' && event.key !== 'H') return;
+
+      event.preventDefault();
+      void toggle();
+    });
 
     // 日時変更で再描画（表示時のみ）
     const dt = document.getElementById('datetimeInput');
