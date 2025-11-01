@@ -222,6 +222,13 @@
       };
       btn.addEventListener('click', toggle, { passive: true });
       btn.addEventListener('touchstart', (e)=>{ e.preventDefault(); toggle(); }, { passive:false });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.metaKey && (event.key === 'h' || event.key === 'H')) {
+          event.preventDefault();
+          toggle();
+        }
+      });
     }
 
     // 日時変更で再描画（表示時のみ）
