@@ -16,6 +16,81 @@ function initApp() {
     const centerX = w / 2;
     const centerY = h / 2;
 
+    // Horoscope overlay toggle state
+    const horoscopeToggleButton = document.getElementById('horoscopeToggleButton');
+    const horoscopeOverlay = document.getElementById('horoscopeOverlay');
+    let isHoroscopeVisible = false;
+
+    const updateHoroscopeUi = () => {
+      if (horoscopeToggleButton) {
+        horoscopeToggleButton.setAttribute('aria-pressed', String(isHoroscopeVisible));
+      }
+      if (horoscopeOverlay) {
+        horoscopeOverlay.hidden = !isHoroscopeVisible;
+        horoscopeOverlay.setAttribute('aria-hidden', String(!isHoroscopeVisible));
+      }
+      if (document.body) {
+        document.body.classList.toggle('horoscope-visible', isHoroscopeVisible);
+      }
+    };
+
+    const setHoroscopeVisibility = (nextState) => {
+      const desiredState = Boolean(nextState);
+      const changed = desiredState !== isHoroscopeVisible;
+      isHoroscopeVisible = desiredState;
+      updateHoroscopeUi();
+      if (changed && typeof CustomEvent === 'function') {
+        document.dispatchEvent(new CustomEvent('sphere10:horoscope-toggle', {
+          detail: { active: isHoroscopeVisible }
+        }));
+      }
+      return isHoroscopeVisible;
+    };
+
+    const toggleHoroscopeVisibility = () => setHoroscopeVisibility(!isHoroscopeVisible);
+
+    if (typeof window !== 'undefined') {
+      window.SPHERE10 = window.SPHERE10 || {};
+      window.SPHERE10.toggleHoroscope = toggleHoroscopeVisibility;
+      window.SPHERE10.setHoroscopeVisible = setHoroscopeVisibility;
+      window.SPHERE10.isHoroscopeVisible = () => isHoroscopeVisible;
+    }
+
+    if (horoscopeToggleButton) {
+      let horoscopeTouchHandled = false;
+
+      const handleActivation = () => {
+        toggleHoroscopeVisibility();
+      };
+
+      horoscopeToggleButton.addEventListener('touchstart', (event) => {
+        horoscopeTouchHandled = true;
+        event.preventDefault();
+        handleActivation();
+      }, { passive: false });
+
+      horoscopeToggleButton.addEventListener('touchend', () => {
+        horoscopeTouchHandled = false;
+      }, { passive: true });
+
+      horoscopeToggleButton.addEventListener('click', () => {
+        if (horoscopeTouchHandled) {
+          horoscopeTouchHandled = false;
+          return;
+        }
+        handleActivation();
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.ctrlKey && event.metaKey && (event.code === 'KeyH' || event.key === 'h' || event.key === 'H')) {
+        event.preventDefault();
+        toggleHoroscopeVisibility();
+      }
+    });
+
+    updateHoroscopeUi();
+
     // ★★★ タッチ操作対応（iPadサポート） ★★★
     let initialTouchDistance = null;
     let initialZoom = zoom;
