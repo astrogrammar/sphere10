@@ -1117,10 +1117,10 @@ function initApp() {
           return { ra, dec };
         },
         "green",
-        1,
+        2,
         true,
         360
-      );
+      ); // false＝実線
     }
 
     function drawEquator() {
