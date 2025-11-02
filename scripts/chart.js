@@ -206,7 +206,7 @@
 
     let visible = canvas.style.display !== 'none';
     if (canvas.style.display === '') {
-      visible = true;
+      visible = false;
     }
 
     let existingButton = document.getElementById(TOGGLE_ID);
@@ -294,6 +294,7 @@
       renderOnce();
     });
   }
+
 
   // DOM 準備後に初期化
   window.addEventListener('DOMContentLoaded', setupToggle);
