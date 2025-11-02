@@ -287,6 +287,64 @@ function initApp() {
     const datetimeInput = document.getElementById('datetimeInput');
     const locationInput = document.getElementById('locationInput');
     const setLocationButton = document.getElementById('setLocationButton');
+    const horoscopeToggleButton = document.getElementById('horoscopeToggleButton');
+
+    if (horoscopeToggleButton) {
+      const HOROSCOPE_KEY_CODE = 72; // 'H'
+
+      const isHoroscopeVisible = () => {
+        const chartCanvas = document.getElementById('chartCanvas');
+        if (chartCanvas) {
+          const style = chartCanvas.style.display || (typeof window !== 'undefined' ? window.getComputedStyle(chartCanvas).display : '');
+          return style !== 'none';
+        }
+        return horoscopeToggleButton.getAttribute('aria-pressed') === 'true';
+      };
+
+      const updateHoroscopeButtonState = () => {
+        horoscopeToggleButton.setAttribute('aria-pressed', isHoroscopeVisible() ? 'true' : 'false');
+      };
+
+      const fireHoroscopeShortcut = () => {
+        const eventInit = {
+          key: 'h',
+          code: 'KeyH',
+          keyCode: HOROSCOPE_KEY_CODE,
+          which: HOROSCOPE_KEY_CODE,
+          ctrlKey: true,
+          metaKey: true,
+          bubbles: true,
+          cancelable: true
+        };
+        const shortcutEvent = new KeyboardEvent('keydown', eventInit);
+        document.dispatchEvent(shortcutEvent);
+        requestAnimationFrame(updateHoroscopeButtonState);
+      };
+
+      let touchActivated = false;
+      horoscopeToggleButton.addEventListener('touchstart', (event) => {
+        touchActivated = true;
+        event.preventDefault();
+        fireHoroscopeShortcut();
+        setTimeout(() => { touchActivated = false; }, 500);
+      }, { passive: false });
+
+      horoscopeToggleButton.addEventListener('click', () => {
+        if (touchActivated) {
+          touchActivated = false;
+          return;
+        }
+        fireHoroscopeShortcut();
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.metaKey && (event.code === 'KeyH' || event.key === 'h' || event.key === 'H')) {
+          requestAnimationFrame(updateHoroscopeButtonState);
+        }
+      });
+
+      updateHoroscopeButtonState();
+    }
 
     // ★★★ 恒星表示・裏側描画のフラグ ★★★
     let starsVisible = true;
