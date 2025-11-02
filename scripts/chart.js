@@ -12,6 +12,19 @@
   const WHITE = '#ffffff';
   const CANVAS_ID = 'chartCanvas';
   const TOGGLE_ID = 'toggleChartBtn';
+  const TOUCH_TOGGLE_ID = 'horoscopeToggleButton';
+  let toggleHandler = null;
+
+  function bindToggleTarget(target, handler) {
+    if (!target) return;
+    target.addEventListener('click', () => {
+      handler();
+    }, { passive: true });
+    target.addEventListener('touchstart', (event) => {
+      event.preventDefault();
+      handler();
+    }, { passive: false });
+  }
 
   // 10天体（表示順は任意、記号は度数非表示）
   const PLANETS = [
@@ -202,6 +215,7 @@
   // ========= 初期化（トグル/イベント） =========
   function setupToggle() {
     const btn = document.getElementById(TOGGLE_ID);
+    const touchToggle = document.getElementById(TOUCH_TOGGLE_ID);
     const canvas = document.getElementById(CANVAS_ID);
     if (!canvas) return;
 
@@ -211,18 +225,17 @@
     }
 
     // ボタンが存在すればトグル
-    if (btn) {
-      let visible = canvas.style.display !== 'none';
-      const show = async () => { canvas.style.display = 'block'; await renderOnce(); };
-      const hide = () => { canvas.style.display = 'none'; };
+    let visible = canvas.style.display !== 'none';
+    const show = async () => { canvas.style.display = 'block'; await renderOnce(); };
+    const hide = () => { canvas.style.display = 'none'; };
 
-      const toggle = async () => {
-        visible = !visible;
-        if (visible) await show(); else hide();
-      };
-      btn.addEventListener('click', toggle, { passive: true });
-      btn.addEventListener('touchstart', (e)=>{ e.preventDefault(); toggle(); }, { passive:false });
-    }
+    toggleHandler = async () => {
+      visible = !visible;
+      if (visible) await show(); else hide();
+    };
+
+    bindToggleTarget(btn, toggleHandler);
+    bindToggleTarget(touchToggle, toggleHandler);
 
     // 日時変更で再描画（表示時のみ）
     const dt = document.getElementById('datetimeInput');
@@ -241,6 +254,14 @@
       renderOnce();
     });
   }
+
+  document.addEventListener('keydown', (event) => {
+    if (!toggleHandler) return;
+    if (!event.ctrlKey || !event.metaKey) return;
+    if (event.code !== 'KeyH') return;
+    event.preventDefault();
+    toggleHandler();
+  });
 
   // DOM 準備後に初期化
   window.addEventListener('DOMContentLoaded', setupToggle);

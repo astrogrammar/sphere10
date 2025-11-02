@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sphere10 Horoscope Chart</title>
+    <link rel="stylesheet" href="css/chart.css" />
+  </head>
+  <body>
+    <main class="chart-layout">
+      <section class="chart-panel">
+        <h1 class="chart-title">Horoscope Chart</h1>
+        <canvas id="chartCanvas" width="420" height="420" aria-label="Horoscope chart"></canvas>
+        <div class="chart-controls">
+          <button id="toggleChartBtn" type="button">Toggle Horoscope</button>
+        </div>
+      </section>
+    </main>
+    <button
+      id="horoscopeToggleButton"
+      class="onscreen-toggle"
+      type="button"
+      aria-label="Horoscope (Ctrl+⌘+H)"
+      title="Horoscope (Ctrl+⌘+H)"
+    >
+      ♈︎
+    </button>
+    <script src="scripts/astronomy.browser.min.js"></script>
+    <script src="scripts/chart.js"></script>
+  </body>
+</html>

@@ -1,0 +1,131 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top, #1a1d2a, #070910 65%, #04060b 100%);
+  font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Meiryo', system-ui, -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  color: #f5f7ff;
+  padding: 32px 16px 72px; /* leave room for floating toggle */
+}
+
+.chart-layout {
+  width: min(520px, 100%);
+  display: flex;
+  justify-content: center;
+}
+
+.chart-panel {
+  width: 100%;
+  padding: 24px 20px 32px;
+  border-radius: 20px;
+  background: rgba(10, 12, 20, 0.82);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.chart-title {
+  margin: 0 0 20px;
+  font-size: clamp(1.25rem, 1.5vw + 1rem, 1.75rem);
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+#chartCanvas {
+  width: min(460px, 100%);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  display: block;
+  margin: 0 auto;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.chart-controls {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+#toggleChartBtn {
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  border-radius: 999px;
+  border: none;
+  color: #0c101c;
+  background: linear-gradient(135deg, #f6d365, #fda085);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(253, 160, 133, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#toggleChartBtn:hover,
+#toggleChartBtn:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(253, 160, 133, 0.45);
+  outline: none;
+}
+
+#toggleChartBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 16px rgba(253, 160, 133, 0.35);
+}
+
+@media (max-width: 520px) {
+  body {
+    padding: 24px 12px 72px;
+  }
+
+  .chart-panel {
+    padding: 20px 16px 28px;
+  }
+
+  #toggleChartBtn {
+    width: 100%;
+  }
+}
+
+/* On-screen Toggle Button */
+#horoscopeToggleButton {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#horoscopeToggleButton:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
+#horoscopeToggleButton:active {
+  transform: scale(0.96);
+}
