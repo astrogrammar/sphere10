@@ -201,28 +201,81 @@
 
   // ========= 初期化（トグル/イベント） =========
   function setupToggle() {
-    const btn = document.getElementById(TOGGLE_ID);
     const canvas = document.getElementById(CANVAS_ID);
     if (!canvas) return;
 
-    // 初期表示：表示状態なら描画
-    if (canvas.style.display !== 'none') {
-      renderOnce();
+    let visible = canvas.style.display !== 'none';
+    if (canvas.style.display === '') {
+      visible = true;
     }
 
-    // ボタンが存在すればトグル
-    if (btn) {
-      let visible = canvas.style.display !== 'none';
-      const show = async () => { canvas.style.display = 'block'; await renderOnce(); };
-      const hide = () => { canvas.style.display = 'none'; };
-
-      const toggle = async () => {
-        visible = !visible;
-        if (visible) await show(); else hide();
-      };
-      btn.addEventListener('click', toggle, { passive: true });
-      btn.addEventListener('touchstart', (e)=>{ e.preventDefault(); toggle(); }, { passive:false });
+    let existingButton = document.getElementById(TOGGLE_ID);
+    if (existingButton) {
+      existingButton.remove();
     }
+
+    const btn = document.createElement('button');
+    btn.id = TOGGLE_ID;
+    btn.type = 'button';
+    btn.className = 'chart-toggle';
+    btn.textContent = '♈︎';
+    btn.setAttribute('title', 'Horoscope (Ctrl+⌘+H)');
+    btn.setAttribute('aria-label', 'Toggle horoscope overlay');
+    document.body.appendChild(btn);
+
+    const updateStates = () => {
+      btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+      canvas.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      canvas.style.display = visible ? 'block' : 'none';
+    };
+
+    const show = async () => {
+      visible = true;
+      updateStates();
+      await renderOnce();
+    };
+
+    const hide = () => {
+      visible = false;
+      updateStates();
+    };
+
+    updateStates();
+    if (visible) {
+      void renderOnce();
+    }
+
+    let toggling = false;
+    const toggleVisibility = async (event) => {
+      if (event && event.type === 'touchstart') {
+        event.preventDefault();
+      }
+      if (toggling) return;
+      toggling = true;
+      try {
+        if (visible) {
+          hide();
+        } else {
+          await show();
+        }
+      } finally {
+        toggling = false;
+      }
+    };
+
+    const onClick = () => { void toggleVisibility(); };
+    const onTouch = (event) => { void toggleVisibility(event); };
+
+    btn.addEventListener('click', onClick, { passive: true });
+    btn.addEventListener('touchstart', onTouch, { passive: false });
+
+    window.addEventListener('keydown', (event) => {
+      const key = (event.key || event.code || '').toLowerCase();
+      if ((key === 'h' || key === 'keyh') && event.ctrlKey && event.metaKey) {
+        event.preventDefault();
+        void toggleVisibility();
+      }
+    });
 
     // 日時変更で再描画（表示時のみ）
     const dt = document.getElementById('datetimeInput');
