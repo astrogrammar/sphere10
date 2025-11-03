@@ -139,9 +139,9 @@
     ctx.font = '18px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
 
     for (let i = 0; i < 12; i++) {
-      // ♈︎を9時位置（180°）に固定し、反時計回りに配置
-      // i=0 → 180°（9時）, i=1 → 210°, i=2 → 240°, ...
-      const angleDeg = 180 + i * 30;
+      // ♈︎を9時位置（180°）に固定し、時計回りに配置
+      // i=0 → 180°（9時）, i=1 → 150°, i=2 → 120°, ...
+      const angleDeg = 180 - i * 30;
       const angleRad = deg2rad(angleDeg);
 
       // 区切り線（外円から中心まで）
@@ -155,7 +155,7 @@
       ctx.stroke();
 
       // サイン記号（各ハウスの中央）
-      const midAngleDeg = angleDeg + 15;
+      const midAngleDeg = angleDeg - 15;
       const midAngleRad = deg2rad(midAngleDeg);
       const sx = cx + SIGN_RING_R * 0.88 * Math.cos(midAngleRad);
       const sy = cy + SIGN_RING_R * 0.88 * Math.sin(midAngleRad);
@@ -171,8 +171,8 @@
       if (typeof lon !== 'number') continue;
 
       // 惑星の黄経を9時位置基準に変換（♈︎0°=9時=180°）
-      // 黄経0°（♈︎0°）→ 180°、黄経90°（♋︎0°）→ 270°
-      const angleDeg = 180 + lon;
+      // 黄経0°（♈︎0°）→ 180°、黄経90°（♋︎0°）→ 90°（時計回り）
+      const angleDeg = 180 - lon;
       const angleRad = deg2rad(angleDeg);
 
       const x = cx + PLANET_RING_R * Math.cos(angleRad);
