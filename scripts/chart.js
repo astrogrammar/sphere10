@@ -89,7 +89,7 @@
 
     // Step 4 要件：半径設定
     const SIGN_RING_R   = 0.95 * R;  // 外周（サインリング）
-    const PLANET_RING_R = 0.60 * R;  // 内周（惑星リング）
+    const PLANET_RING_R = 0.70 * R;  // 内周（惑星リング）
 
     // 背景（円形・半透明）
     ctx.fillStyle = BACKGROUND_RGBA;
@@ -107,11 +107,11 @@
     ctx.stroke();
 
     // 惑星リング
-    ctx.lineWidth = 1.0;
-    ctx.strokeStyle = PLANET_COLOR;
-    ctx.beginPath();
-    ctx.arc(cx, cy, PLANET_RING_R, 0, Math.PI * 2);
-    ctx.stroke();
+   ctx.lineWidth = 1.0;
+   ctx.strokeStyle = '#333333';  // 色変更
+   ctx.beginPath();
+   ctx.arc(cx, cy, PLANET_RING_R, 0, Math.PI * 2);
+   ctx.stroke();
 
     // ハウス区切り線 + サイン記号（♈︎を9時位置固定）
     ctx.strokeStyle = SIGN_COLOR;
@@ -123,7 +123,7 @@
     for (let i = 0; i < 12; i++) {
       // ♈︎を9時位置（180°）に固定し、反時計回りに配置
       // i=0 → 180°（9時）, i=1 → 210°, i=2 → 240°, ...
-      const angleDeg = 180 + i * 30;
+      const angleDeg = 180 - i * 30;
       const angleRad = deg2rad(angleDeg);
 
       // 区切り線（外円から中心まで）
@@ -137,7 +137,7 @@
       ctx.stroke();
 
       // サイン記号（各ハウスの中央）
-      const midAngleDeg = angleDeg + 15;
+      const midAngleDeg = angleDeg - 15;
       const midAngleRad = deg2rad(midAngleDeg);
       const sx = cx + SIGN_RING_R * 0.88 * Math.cos(midAngleRad);
       const sy = cy + SIGN_RING_R * 0.88 * Math.sin(midAngleRad);
