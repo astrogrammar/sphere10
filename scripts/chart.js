@@ -1,4 +1,3 @@
-// scripts/chart.js
 // ────────────────────────────────────────────────────────────────
 // Step 4: Horoscope Layout Refactor
 // サインを外周、惑星を内周に分離。♈︎を9時位置固定。
@@ -52,23 +51,31 @@
     return 139.65; // 既定：横浜
   }
 
+  // ========= 惑星黄経キャッシュ =========
+  let cachedLongitudes = null;
+  let cachedDate = null;
+
   // ========= 天体の黄経（地心）を取得 =========
   async function computeEclipticLongitudes(date) {
     const out = {};
+    
+    // Astronomy Engineが利用可能か確認
     if (typeof Astronomy === 'undefined') {
-      // フォールバック：時刻ベースのダミー配置（可視確認用）
-      const seed = date.getUTCHours() * 60 + date.getUTCMinutes();
-      PLANETS.forEach((p, i) => { out[p.key] = norm360(seed * 0.5 + i * 33); });
+      console.error('[chart.js] Astronomy Engine is not loaded');
       return out;
     }
+
+    console.log('[chart.js] Computing ecliptic longitudes for:', date.toISOString());
+
     for (const p of PLANETS) {
       try {
         const vec = Astronomy.GeoVector(p.key, date);  // 地心直交座標
         const ecl = Astronomy.Ecliptic(vec);           // 黄道座標
         out[p.key] = norm360(ecl.elon);
+        console.log(`[chart.js] ${p.key}: ${out[p.key].toFixed(2)}°`);
       } catch (e) {
-        // 未対応天体や例外時も崩さない
-        out[p.key] = Math.random() * 360;
+        console.error(`[chart.js] Error computing ${p.key}:`, e);
+        out[p.key] = 0;  // エラー時は0度に設定
       }
     }
     return out;
@@ -79,47 +86,46 @@
   // ========= 描画メイン（Step 4 レイアウト） =========
   function drawChart(ctx, longitudes) {
     const canvas = ctx.canvas;
-    
+
     // CSS表示サイズを取得
     const rect = canvas.getBoundingClientRect();
     const cssWidth = rect.width;
     const cssHeight = rect.height;
-    
+
     // デバイスピクセル比を取得（Retina対応）
     const dpr = window.devicePixelRatio || 1;
-    
+
     // Canvas論理サイズを物理ピクセルに合わせる
     canvas.width = cssWidth * dpr;
     canvas.height = cssHeight * dpr;
-    
+
     // 描画座標系をCSS座標系に戻す
     ctx.scale(dpr, dpr);
-    
+
     // 以降の描画コードはCSS座標系で記述
     const W = cssWidth;
     const H = cssHeight;
     ctx.clearRect(0, 0, W, H);
-    ctx.save();
 
     const cx = W / 2;
     const cy = H / 2;
-    const R = Math.min(W, H) / 2 - 20;
+    const R = Math.min(W, H) / 2 - 10;
 
     // Step 4 要件：半径設定
     const SIGN_RING_R   = 0.95 * R;  // 外周（サインリング）
-    const PLANET_RING_R = 0.60 * R;  // 内周（惑星リング）
+    const PLANET_RING_R = 0.85 * R;  // 内周（惑星リング）
 
-    // 背景（円形・半透明）
+    ctx.save();
+
+    // 背景円（半透明）
     ctx.fillStyle = BACKGROUND_RGBA;
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
     ctx.fill();
 
-    // 基本スタイル
-    ctx.strokeStyle = SIGN_COLOR;
-    ctx.lineWidth = 1.5;
-
     // 外円（サインリング）
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = SIGN_COLOR;
     ctx.beginPath();
     ctx.arc(cx, cy, SIGN_RING_R, 0, Math.PI * 2);
     ctx.stroke();
@@ -131,8 +137,7 @@
     ctx.arc(cx, cy, PLANET_RING_R, 0, Math.PI * 2);
     ctx.stroke();
 
-    // ハウス区切り線 + サイン記号（♈︎を9時位置固定）
-    ctx.strokeStyle = SIGN_COLOR;
+    // サイン記号（外周リング、グレー）
     ctx.fillStyle = SIGN_COLOR;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -184,16 +189,24 @@
   }
 
   // ========= メインレンダリング =========
-  async function renderOnce() {
+  async function renderOnce(forceRecompute = false) {
     const canvas = document.getElementById(CANVAS_ID);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const date = getDateFromPage();
-    const longs = await computeEclipticLongitudes(date);
 
-    drawChart(ctx, longs);
+    // 日時が変わった場合のみ再計算
+    if (forceRecompute || !cachedLongitudes || cachedDate?.getTime() !== date.getTime()) {
+      console.log('[chart.js] Recomputing planet longitudes...');
+      cachedLongitudes = await computeEclipticLongitudes(date);
+      cachedDate = date;
+    } else {
+      console.log('[chart.js] Using cached planet longitudes');
+    }
+
+    drawChart(ctx, cachedLongitudes);
   }
 
   // ========= 初期化（トグル/イベント） =========
@@ -229,7 +242,7 @@
     const show = async () => {
       visible = true;
       updateStates();
-      await renderOnce();
+      await renderOnce(true);  // 表示時は強制再計算
     };
 
     const hide = () => {
@@ -239,7 +252,7 @@
 
     updateStates();
     if (visible) {
-      void renderOnce();
+      void renderOnce(true);
     }
 
     let toggling = false;
@@ -274,21 +287,21 @@
       }
     });
 
-    // 日時変更で再描画（表示時のみ）
+    // 日時変更で再描画（表示時のみ、強制再計算）
     const dt = document.getElementById('datetimeInput');
     if (dt) {
       const re = async () => {
         if (!canvas || canvas.style.display === 'none') return;
-        await renderOnce();
+        await renderOnce(true);  // 日時変更時は強制再計算
       };
       dt.addEventListener('change', re);
       dt.addEventListener('input', re);
     }
 
-    // リサイズで再描画
+    // リサイズで再描画（キャッシュ使用）
     window.addEventListener('resize', () => {
       if (!canvas || canvas.style.display === 'none') return;
-      renderOnce();
+      renderOnce(false);  // リサイズ時はキャッシュ使用
     });
   }
 
