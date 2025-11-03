@@ -69,7 +69,7 @@
 
     for (const p of PLANETS) {
       try {
-        const vec = Astronomy.GeoVector(p.key, date);  // 地心直交座標
+        const vec = Astronomy.GeoVector(p.key, date, false);  // 地心直交座標（光行差補正なし）
         const ecl = Astronomy.Ecliptic(vec);           // 黄道座標
         out[p.key] = norm360(ecl.elon);
         console.log(`[chart.js] ${p.key}: ${out[p.key].toFixed(2)}°`);
