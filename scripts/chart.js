@@ -13,7 +13,7 @@
   // 色設定（CSS変数と連動）
   const SIGN_COLOR = '#888888';
   const PLANET_COLOR = '#FFFFFF';
-  const BACKGROUND_RGBA = 'rgba(0,0,0,0.6)';
+  const BACKGROUND_RGBA = 'rgba(0,0,0,0.8)';
 
   // 10天体（表示順は任意、記号は度数非表示）
   const PLANETS = [
@@ -121,7 +121,7 @@
 
     // Step 4 要件：半径設定
     const SIGN_RING_R   = 0.95 * R;  // 外周（サインリング）
-    const PLANET_RING_R = 0.85 * R;  // 内周（惑星リング）
+    const PLANET_RING_R = 0.70 * R;  // 内周（惑星リング）
 
     ctx.save();
 
@@ -140,7 +140,7 @@
 
     // 惑星リング
     ctx.lineWidth = 1.0;
-    ctx.strokeStyle = PLANET_COLOR;
+    ctx.strokeStyle = '#333333';  // 色変更
     ctx.beginPath();
     ctx.arc(cx, cy, PLANET_RING_R, 0, Math.PI * 2);
     ctx.stroke();
@@ -149,7 +149,7 @@
     ctx.fillStyle = SIGN_COLOR;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = '18px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
+    ctx.font = '18px system-ui, "Segoe UI Symbol", sans-serif';
 
     for (let i = 0; i < 12; i++) {
       // ♈︎を9時位置（180°）に固定し、時計回りに配置
