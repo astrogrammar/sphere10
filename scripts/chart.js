@@ -1,36 +1,38 @@
-// scripts/chart.js
 // ────────────────────────────────────────────────────────────────
-// 既存コード(sphere10.js)に一切触れず、右下キャンバスに
-// 「ホール・サイン・ハウス＋10天体記号」を白(#ffffff)で描画する。
-// 角(ASC/MC/IC/DSC)や度数は表示しない。
-// トグルボタン #toggleChartBtn で #chartCanvas の表示/非表示を切替。
+// Step 4: Horoscope Layout Refactor
+// サインを外周、惑星を内周に分離。♈︎を9時位置固定。
+// 背景は円形・半透明。トグルボタン #toggleChartBtn で表示/非表示。
 // ────────────────────────────────────────────────────────────────
 (() => {
   'use strict';
 
-  // ===== 設定値（色は要件どおり白固定） =====
-  const WHITE = '#ffffff';
+  // ===== 定数（Step 4 要件） =====
   const CANVAS_ID = 'chartCanvas';
   const TOGGLE_ID = 'toggleChartBtn';
 
+  // 色設定（CSS変数と連動）
+  const SIGN_COLOR = '#888888';
+  const PLANET_COLOR = '#FFFFFF';
+  const BACKGROUND_RGBA = 'rgba(0,0,0,0.8)';
+
   // 10天体（表示順は任意、記号は度数非表示）
   const PLANETS = [
-    { key: 'Sun',     glyph: '☉' },
-    { key: 'Moon',    glyph: '☽' },
-    { key: 'Mercury', glyph: '☿' },
-    { key: 'Venus',   glyph: '♀' },
-    { key: 'Mars',    glyph: '♂' },
-    { key: 'Jupiter', glyph: '♃' },
-    { key: 'Saturn',  glyph: '♄' },
-    { key: 'Uranus',  glyph: '♅' },
-    { key: 'Neptune', glyph: '♆' },
-    { key: 'Pluto',   glyph: '♇' },
+    { key: 'sun',     glyph: '☉' },
+    { key: 'moon',    glyph: '☽' },
+    { key: 'mercury', glyph: '☿' },
+    { key: 'venus',   glyph: '♀' },
+    { key: 'mars',    glyph: '♂' },
+    { key: 'jupiter', glyph: '♃' },
+    { key: 'saturn',  glyph: '♄' },
+    { key: 'uranus',  glyph: '♅' },
+    { key: 'neptune', glyph: '♆' },
+    { key: 'pluto',   glyph: '♇' },
   ];
 
-  // サイン記号（ASCサインを第1室として時計回りに配置）
+  // サイン記号（♈︎=0, ♉︎=1, ..., ♓︎=11）
   const SIGN_GLYPHS = ['♈︎','♉︎','♊︎','♋︎','♌︎','♍︎','♎︎','♏︎','♐︎','♑︎','♒︎','♓︎'];
 
-  // ========= 小道具 =========
+  // ========= ユーティリティ =========
   const norm360 = deg => ((deg % 360) + 360) % 360;
   const deg2rad = d => d * Math.PI / 180;
 
@@ -49,130 +51,145 @@
     return 139.65; // 既定：横浜
   }
 
+  // ========= 惑星黄経キャッシュ =========
+  let cachedLongitudes = null;
+  let cachedDate = null;
+
   // ========= 天体の黄経（地心）を取得 =========
   async function computeEclipticLongitudes(date) {
     const out = {};
-    if (typeof Astronomy === 'undefined') {
-      // フォールバック：時刻ベースのダミー配置（可視確認用）
-      const seed = date.getUTCHours() * 60 + date.getUTCMinutes();
-      PLANETS.forEach((p, i) => { out[p.key] = norm360(seed * 0.5 + i * 33); });
+
+    // ========================================
+    // ★ MODIFIED: Use ecliptic longitudes computed by sphere10.js
+    // ========================================
+    // Check if sphere10.js has already computed the ecliptic longitudes
+    if (window.planetEclipticLongitudes && Object.keys(window.planetEclipticLongitudes).length > 0) {
+      console.log('[chart.js] Using ecliptic longitudes from sphere10.js');
+      for (const p of PLANETS) {
+        const elon = window.planetEclipticLongitudes[p.key];
+        if (elon !== undefined) {
+          out[p.key] = norm360(elon);
+          console.log(`[chart.js] ${p.key}: ${out[p.key].toFixed(2)}° (from sphere10.js)`);
+        } else {
+          console.warn(`[chart.js] ${p.key}: not found in sphere10.js data, using 0°`);
+          out[p.key] = 0;
+        }
+      }
       return out;
     }
+
+    // Fallback: If sphere10.js data is not available, log warning
+    console.warn('[chart.js] sphere10.js ecliptic longitudes not available, using 0° for all planets');
     for (const p of PLANETS) {
-      try {
-        const vec = Astronomy.GeoVector(p.key, date);  // 地心直交座標
-        const ecl = Astronomy.Ecliptic(vec);           // 黄道座標
-        out[p.key] = norm360(ecl.elon);
-      } catch (e) {
-        // 未対応天体や例外時も崩さない
-        out[p.key] = Math.random() * 360;
-      }
+      out[p.key] = 0;
     }
+    // ========================================
+    // ★ END MODIFIED
+    // ========================================
     return out;
   }
 
-  // ========= ASCの黄経（近似）→ ホールサイン第1室の起点 =========
-  async function computeAscendantLongitude(date, latDeg, lonDeg) {
-    if (typeof Astronomy === 'undefined') {
-      // フォールバック：ソーラー・ホールサイン（太陽サイン＝第1室）
-      const longs = await computeEclipticLongitudes(date);
-      return longs.Sun ?? 0;
-    }
-    try {
-      // 近似式：ASC黄経 ≈ arctan2(-cos ε * tan φ , -sin ε) + LST*15°
-      // （厳密な地平線-黄道交点探索は重いので簡略。必要なら置換可能）
-      const epsRad = deg2rad(Astronomy.EclipticObliquity(date).obl_deg);
-      const phiRad = deg2rad(latDeg);
 
-      // 真太陽時ではなく地方恒星時を使用
-      const lstHours = Astronomy.SiderealTime(date) + lonDeg/15; // 東経を加算
-      const lstDeg = norm360(lstHours * 15);
 
-      const ascApprox =
-        Math.atan2(-Math.cos(epsRad)*Math.tan(phiRad), -Math.sin(epsRad)) * 180/Math.PI + lstDeg;
+  // ========= 描画メイン（Step 4 レイアウト） =========
+  function drawChart(ctx, longitudes) {
+    const canvas = ctx.canvas;
 
-      return norm360(ascApprox);
-    } catch {
-      const longs = await computeEclipticLongitudes(date);
-      return longs.Sun ?? 0;
-    }
-  }
+    // CSS表示サイズを取得
+    const rect = canvas.getBoundingClientRect();
+    const cssWidth = rect.width;
+    const cssHeight = rect.height;
 
-  // ========= 描画 =========
-  function roundedRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x+r, y);
-    ctx.arcTo(x+w, y,   x+w, y+h, r);
-    ctx.arcTo(x+w, y+h, x,   y+h, r);
-    ctx.arcTo(x,   y+h, x,   y,   r);
-    ctx.arcTo(x,   y,   x+w, y,   r);
-    ctx.closePath();
-  }
+    // デバイスピクセル比を取得（Retina対応）
+    const dpr = window.devicePixelRatio || 1;
 
-  function drawChart(ctx, longitudes, ascLon) {
-    const W = ctx.canvas.width;
-    const H = ctx.canvas.height;
+    // Canvas論理サイズを物理ピクセルに合わせる
+    canvas.width = cssWidth * dpr;
+    canvas.height = cssHeight * dpr;
+
+    // 描画座標系をCSS座標系に戻す
+    ctx.scale(dpr, dpr);
+
+    // 以降の描画コードはCSS座標系で記述
+    const W = cssWidth;
+    const H = cssHeight;
     ctx.clearRect(0, 0, W, H);
+
+    const cx = W / 2;
+    const cy = H / 2;
+    const R = Math.min(W, H) / 2 - 10;
+
+    // Step 4 要件：半径設定
+    const SIGN_RING_R   = 0.95 * R;  // 外周（サインリング）
+    const PLANET_RING_R = 0.70 * R;  // 内周（惑星リング）
+
     ctx.save();
 
-    // 背景（半透明ダーク：白線が白地に溶けないため。要件は線と記号の色のみ白指定）
-    ctx.globalAlpha = 0.22;
-    ctx.fillStyle = '#000000';
-    roundedRect(ctx, 0, 0, W, H, 16);
+    // 背景円（半透明）
+    ctx.fillStyle = BACKGROUND_RGBA;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 1;
 
-    // 基本スタイル（白）
-    ctx.strokeStyle = WHITE;
-    ctx.fillStyle   = WHITE;
-    ctx.lineWidth   = 1.2;
+    // 外円（サインリング）
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = SIGN_COLOR;
+    ctx.beginPath();
+    ctx.arc(cx, cy, SIGN_RING_R, 0, Math.PI * 2);
+    ctx.stroke();
 
-    const cx = W/2, cy = H/2;
-    const R_outer  = Math.min(W, H)/2 - 16;
-    const R_inner  = R_outer * 0.82;
-    const R_planet = (R_outer + R_inner)/2;
+    // 惑星リング
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = '#333333';  // 色変更
+    ctx.beginPath();
+    ctx.arc(cx, cy, PLANET_RING_R, 0, Math.PI * 2);
+    ctx.stroke();
 
-    // 外輪・内輪
-    ctx.beginPath(); ctx.arc(cx, cy, R_outer, 0, Math.PI*2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, R_inner, 0, Math.PI*2); ctx.stroke();
-
-    // ホールサイン：ASCが属するサインを第1室へ（度数は描かない）
-    const ascSignIndex = Math.floor(norm360(ascLon)/30); // 0:牡羊
+    // サイン記号（外周リング、グレー）
+    ctx.fillStyle = SIGN_COLOR;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-
-    // サイン記号は少しだけ小さめ
-    ctx.font = '16px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
+    ctx.font = '18px system-ui, "Segoe UI Symbol", sans-serif';
 
     for (let i = 0; i < 12; i++) {
-      const signIndex = (ascSignIndex + i) % 12;
-      // その室の開始黄経（30°刻み）
-      const startDeg = norm360(Math.floor(ascLon/30)*30 + i*30);
-      const midDeg   = norm360(startDeg + 15);
+      // ♈︎を9時位置（180°）に固定し、時計回りに配置
+      // i=0 → 180°（9時）, i=1 → 150°, i=2 → 120°, ...
+      const angleDeg = 180 - i * 30;
+      const angleRad = deg2rad(angleDeg);
 
-      // 区切り線
-      const a0 = deg2rad(startDeg - 90);
-      const x1 = cx + R_inner * Math.cos(a0);
-      const y1 = cy + R_inner * Math.sin(a0);
-      const x2 = cx + R_outer * Math.cos(a0);
-      const y2 = cy + R_outer * Math.sin(a0);
-      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      // 区切り線（外円から中心まで）
+      const x1 = cx + SIGN_RING_R * Math.cos(angleRad);
+      const y1 = cy + SIGN_RING_R * Math.sin(angleRad);
+      const x2 = cx;
+      const y2 = cy;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
 
-      // サイン記号
-      const am = deg2rad(midDeg - 90);
-      const sx = cx + (R_outer - 18) * Math.cos(am);
-      const sy = cy + (R_outer - 18) * Math.sin(am);
-      ctx.fillText(SIGN_GLYPHS[signIndex], sx, sy);
+      // サイン記号（各ハウスの中央）
+      const midAngleDeg = angleDeg - 15;
+      const midAngleRad = deg2rad(midAngleDeg);
+      const sx = cx + SIGN_RING_R * 0.88 * Math.cos(midAngleRad);
+      const sy = cy + SIGN_RING_R * 0.88 * Math.sin(midAngleRad);
+      ctx.fillText(SIGN_GLYPHS[i], sx, sy);
     }
 
-    // 10天体（記号のみ、白）
+    // 惑星記号（内周リング上、白）
+    ctx.fillStyle = PLANET_COLOR;
     ctx.font = '20px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
+
     for (const p of PLANETS) {
       const lon = longitudes[p.key];
       if (typeof lon !== 'number') continue;
-      const a = deg2rad(lon - 90);
-      const x = cx + R_planet * Math.cos(a);
-      const y = cy + R_planet * Math.sin(a);
+
+      // 惑星の黄経を9時位置基準に変換（♈︎0°=9時=180°）
+      // 黄経0°（♈︎0°）→ 180°、黄経90°（♋︎0°）→ 90°（時計回り）
+      const angleDeg = 180 - lon;
+      const angleRad = deg2rad(angleDeg);
+
+      const x = cx + PLANET_RING_R * Math.cos(angleRad);
+      const y = cy + PLANET_RING_R * Math.sin(angleRad);
       ctx.fillText(p.glyph, x, y);
     }
 
@@ -180,67 +197,122 @@
   }
 
   // ========= メインレンダリング =========
-  async function renderOnce() {
+  async function renderOnce(forceRecompute = false) {
     const canvas = document.getElementById(CANVAS_ID);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const date = getDateFromPage();
-    const lat  = getLatitude();
-    const lon  = getLongitude();
 
-    // 並列計算（軽量）
-    const [longs, asc] = await Promise.all([
-      computeEclipticLongitudes(date),
-      computeAscendantLongitude(date, lat, lon)
-    ]);
+    // 日時が変わった場合のみ再計算
+    if (forceRecompute || !cachedLongitudes || cachedDate?.getTime() !== date.getTime()) {
+      console.log('[chart.js] Recomputing planet longitudes...');
+      cachedLongitudes = await computeEclipticLongitudes(date);
+      cachedDate = date;
+    } else {
+      console.log('[chart.js] Using cached planet longitudes');
+    }
 
-    drawChart(ctx, longs, asc);
+    drawChart(ctx, cachedLongitudes);
   }
 
   // ========= 初期化（トグル/イベント） =========
   function setupToggle() {
-    const btn = document.getElementById(TOGGLE_ID);
     const canvas = document.getElementById(CANVAS_ID);
     if (!canvas) return;
 
-    // 初期表示：表示状態なら描画
-    if (canvas.style.display !== 'none') {
-      renderOnce();
+    let visible = canvas.style.display !== 'none';
+    if (canvas.style.display === '') {
+      visible = false;
     }
 
-    // ボタンが存在すればトグル
-    if (btn) {
-      let visible = canvas.style.display !== 'none';
-      const show = async () => { canvas.style.display = 'block'; await renderOnce(); };
-      const hide = () => { canvas.style.display = 'none'; };
-
-      const toggle = async () => {
-        visible = !visible;
-        if (visible) await show(); else hide();
-      };
-      btn.addEventListener('click', toggle, { passive: true });
-      btn.addEventListener('touchstart', (e)=>{ e.preventDefault(); toggle(); }, { passive:false });
+    let existingButton = document.getElementById(TOGGLE_ID);
+    if (existingButton) {
+      existingButton.remove();
     }
 
-    // 日時変更で再描画（表示時のみ）
+    const btn = document.createElement('button');
+    btn.id = TOGGLE_ID;
+    btn.type = 'button';
+    btn.className = 'chart-toggle';
+    btn.textContent = '♈︎';
+    btn.setAttribute('title', 'Horoscope (Ctrl+⌘+H)');
+    btn.setAttribute('aria-label', 'Toggle horoscope overlay');
+    document.body.appendChild(btn);
+
+    const updateStates = () => {
+      btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+      canvas.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      canvas.style.display = visible ? 'block' : 'none';
+    };
+
+    const show = async () => {
+      visible = true;
+      updateStates();
+      await renderOnce(true);  // 表示時は強制再計算
+    };
+
+    const hide = () => {
+      visible = false;
+      updateStates();
+    };
+
+    updateStates();
+    if (visible) {
+      void renderOnce(true);
+    }
+
+    let toggling = false;
+    const toggleVisibility = async (event) => {
+      if (event && event.type === 'touchstart') {
+        event.preventDefault();
+      }
+      if (toggling) return;
+      toggling = true;
+      try {
+        if (visible) {
+          hide();
+        } else {
+          await show();
+        }
+      } finally {
+        toggling = false;
+      }
+    };
+
+    const onClick = () => { void toggleVisibility(); };
+    const onTouch = (event) => { void toggleVisibility(event); };
+
+    btn.addEventListener('click', onClick, { passive: true });
+    btn.addEventListener('touchstart', onTouch, { passive: false });
+
+    window.addEventListener('keydown', (event) => {
+      const key = (event.key || event.code || '').toLowerCase();
+      if ((key === 'h' || key === 'keyh') && event.ctrlKey && event.metaKey) {
+        event.preventDefault();
+        void toggleVisibility();
+      }
+    });
+
+    // 日時変更で再描画（表示時のみ、強制再計算）
     const dt = document.getElementById('datetimeInput');
     if (dt) {
       const re = async () => {
         if (!canvas || canvas.style.display === 'none') return;
-        await renderOnce();
+        await renderOnce(true);  // 日時変更時は強制再計算
       };
       dt.addEventListener('change', re);
       dt.addEventListener('input', re);
     }
 
-    // リサイズで再描画（念のため）
+    // リサイズで再描画（キャッシュ使用）
     window.addEventListener('resize', () => {
       if (!canvas || canvas.style.display === 'none') return;
-      renderOnce();
+      renderOnce(false);  // リサイズ時はキャッシュ使用
     });
   }
+
 
   // DOM 準備後に初期化
   window.addEventListener('DOMContentLoaded', setupToggle);
