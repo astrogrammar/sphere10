@@ -17,16 +17,16 @@
 
   // 10天体（表示順は任意、記号は度数非表示）
   const PLANETS = [
-    { key: 'Sun',     glyph: '☉' },
-    { key: 'Moon',    glyph: '☽' },
-    { key: 'Mercury', glyph: '☿' },
-    { key: 'Venus',   glyph: '♀' },
-    { key: 'Mars',    glyph: '♂' },
-    { key: 'Jupiter', glyph: '♃' },
-    { key: 'Saturn',  glyph: '♄' },
-    { key: 'Uranus',  glyph: '♅' },
-    { key: 'Neptune', glyph: '♆' },
-    { key: 'Pluto',   glyph: '♇' },
+    { key: 'sun',     glyph: '☉' },
+    { key: 'moon',    glyph: '☽' },
+    { key: 'mercury', glyph: '☿' },
+    { key: 'venus',   glyph: '♀' },
+    { key: 'mars',    glyph: '♂' },
+    { key: 'jupiter', glyph: '♃' },
+    { key: 'saturn',  glyph: '♄' },
+    { key: 'uranus',  glyph: '♅' },
+    { key: 'neptune', glyph: '♆' },
+    { key: 'pluto',   glyph: '♇' },
   ];
 
   // サイン記号（♈︎=0, ♉︎=1, ..., ♓︎=11）
