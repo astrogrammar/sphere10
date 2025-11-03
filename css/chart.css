@@ -11,16 +11,7 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at top, #1b2735, #090a0f 70%);
-  font-family: 'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-  color: #f5f5f5;
-}
+/* body スタイルはindex.htmlで定義されているため削除 */
 
 .chart-wrapper {
   width: 100%;
@@ -31,13 +22,16 @@ body {
 }
 
 #chartCanvas {
-  width: min(92vw, 640px);
-  height: min(92vw, 640px);
-  max-width: 720px;
-  max-height: 720px;
-  background: rgba(0, 0, 0, 0.75);
-  border-radius: 24px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  position: fixed;
+  right: 20px;
+  bottom: 80px;
+  width: 400px;
+  height: 400px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: none;
+  z-index: 9998;
 }
 
 .chart-toggle {
@@ -80,4 +74,6 @@ body {
     bottom: 16px;
   }
 }
-#chartCanvas { display: none; }
+#chartCanvas {
+  display: none;
+}
