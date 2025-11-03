@@ -1,5 +1,10 @@
 :root {
   color-scheme: dark;
+  /* Chart color variables */
+  --chart-sign-color: #888888;
+  --chart-planet-color: #ffffff;
+  --chart-stroke: #888888;
+  --chart-bg: rgba(0,0,0,0.6);
 }
 
 * {
