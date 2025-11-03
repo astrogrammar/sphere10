@@ -764,6 +764,46 @@ function initApp() {
         p.RA = equ.ra;   
         p.Dec = equ.dec; 
       }
+
+      // ========================================
+      // ★ ADDED: Compute ecliptic longitudes for horoscope chart
+      // ========================================
+      if (!window.planetEclipticLongitudes) {
+        window.planetEclipticLongitudes = {};
+      }
+
+      // Sun
+      const vecSun = Astronomy.GeoVector(Astronomy.Body.Sun, time, false);
+      const eclSun = Astronomy.Ecliptic(vecSun);
+      window.planetEclipticLongitudes.sun = eclSun.elon;
+
+      // Moon
+      const vecMoon = Astronomy.GeoVector(Astronomy.Body.Moon, time, false);
+      const eclMoon = Astronomy.Ecliptic(vecMoon);
+      window.planetEclipticLongitudes.moon = eclMoon.elon;
+
+      // Planets
+      const planetBodies = [
+        { key: 'mercury', body: Astronomy.Body.Mercury },
+        { key: 'venus',   body: Astronomy.Body.Venus },
+        { key: 'mars',    body: Astronomy.Body.Mars },
+        { key: 'jupiter', body: Astronomy.Body.Jupiter },
+        { key: 'saturn',  body: Astronomy.Body.Saturn },
+        { key: 'uranus',  body: Astronomy.Body.Uranus },
+        { key: 'neptune', body: Astronomy.Body.Neptune },
+        { key: 'pluto',   body: Astronomy.Body.Pluto }
+      ];
+
+      for (let planet of planetBodies) {
+        const vec = Astronomy.GeoVector(planet.body, time, false);
+        const ecl = Astronomy.Ecliptic(vec);
+        window.planetEclipticLongitudes[planet.key] = ecl.elon;
+      }
+
+      console.log('[sphere10.js] Ecliptic longitudes computed:', window.planetEclipticLongitudes);
+      // ========================================
+      // ★ END ADDED
+      // ========================================
     }
 
     function toHorizontal(ra, dec, lst) {

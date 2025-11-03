@@ -58,26 +58,34 @@
   // ========= 天体の黄経（地心）を取得 =========
   async function computeEclipticLongitudes(date) {
     const out = {};
-    
-    // Astronomy Engineが利用可能か確認
-    if (typeof Astronomy === 'undefined') {
-      console.error('[chart.js] Astronomy Engine is not loaded');
+
+    // ========================================
+    // ★ MODIFIED: Use ecliptic longitudes computed by sphere10.js
+    // ========================================
+    // Check if sphere10.js has already computed the ecliptic longitudes
+    if (window.planetEclipticLongitudes && Object.keys(window.planetEclipticLongitudes).length > 0) {
+      console.log('[chart.js] Using ecliptic longitudes from sphere10.js');
+      for (const p of PLANETS) {
+        const elon = window.planetEclipticLongitudes[p.key];
+        if (elon !== undefined) {
+          out[p.key] = norm360(elon);
+          console.log(`[chart.js] ${p.key}: ${out[p.key].toFixed(2)}° (from sphere10.js)`);
+        } else {
+          console.warn(`[chart.js] ${p.key}: not found in sphere10.js data, using 0°`);
+          out[p.key] = 0;
+        }
+      }
       return out;
     }
 
-    console.log('[chart.js] Computing ecliptic longitudes for:', date.toISOString());
-
+    // Fallback: If sphere10.js data is not available, log warning
+    console.warn('[chart.js] sphere10.js ecliptic longitudes not available, using 0° for all planets');
     for (const p of PLANETS) {
-      try {
-        const vec = Astronomy.GeoVector(p.key, date, false);  // 地心直交座標（光行差補正なし）
-        const ecl = Astronomy.Ecliptic(vec);           // 黄道座標
-        out[p.key] = norm360(ecl.elon);
-        console.log(`[chart.js] ${p.key}: ${out[p.key].toFixed(2)}°`);
-      } catch (e) {
-        console.error(`[chart.js] Error computing ${p.key}:`, e);
-        out[p.key] = 0;  // エラー時は0度に設定
-      }
+      out[p.key] = 0;
     }
+    // ========================================
+    // ★ END MODIFIED
+    // ========================================
     return out;
   }
 
