@@ -377,6 +377,7 @@ function initApp() {
       showAltGrid = value;
       if (!isInitial) {
         saveSettings();
+        requestRender();  // ★ ADDED: Request re-render when toggle changes
       }
     });
     const migratedZenithNadir = migrateZenithNadirPreference();
@@ -387,6 +388,7 @@ function initApp() {
       showZenithNadir = value;
       if (!isInitial) {
         saveSettings();
+        requestRender();  // ★ ADDED: Request re-render when toggle changes
       }
     });
     horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
