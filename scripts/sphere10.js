@@ -1,5 +1,6 @@
 // Sphere10 ver.2.0 - 天球シミュレーター
-// 古典占星術向けの3D天球表示アプリケーション
+// Codex/phase1 optimization and latitude #23
+// branch:codex/phase1-optimization-and-latitude, comit:
 
 // ★★★ 初期化関数 ★★★
 function initApp() {
@@ -12,7 +13,7 @@ function initApp() {
     const w = canvas.width;
     const h = canvas.height;
     let zoom = 1.0;
-    let scale = w * 0.35 * zoom;
+    let scale = w * 0.4 * zoom;
     const centerX = w / 2;
     const centerY = h / 2;
 
@@ -170,6 +171,8 @@ function initApp() {
         if (saved) {
           const settings = JSON.parse(saved);
           let usedLegacyZenithNadir = false;
+          zoom = 1.0;
+          scale = w * 0.4 * zoom; 
           // 各値を復元（デフォルト値をフォールバック）
           latitude = settings.latitude ?? 35.4333;
           rotationZ = settings.rotationZ ?? 0;
