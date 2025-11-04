@@ -509,6 +509,7 @@ function initApp() {
         rotationZVal.textContent = rotationZSlider.value + "°";
         rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
         rotationYVal.textContent = rotationYSlider.value + "°";
+        requestRender(); // ★ ADDED (Phase 1 fix): Request render on mouse drag
       }
     });
     canvas.addEventListener('mouseup', () => { 
