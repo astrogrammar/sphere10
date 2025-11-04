@@ -1,4 +1,4 @@
-// Sphere10 ver2.0 - 天球シミュレーター
+// Sphere10 ver.2.0 - 天球シミュレーター
 // 古典占星術向けの3D天球表示アプリケーション
 
 // ★★★ 初期化関数 ★★★
@@ -38,6 +38,7 @@ function initApp() {
             zoom = Math.min(Math.max(zoom, 0.1), 10);
             scale = w * 0.4 * zoom;
             e.preventDefault();
+            requestRender();
         }
     });
     canvas.addEventListener('touchend', (e) => {
@@ -53,6 +54,7 @@ function initApp() {
         zoom += delta;
         zoom = Math.min(Math.max(zoom, 0.1), 10);
         scale = w * 0.4 * zoom;
+        requestRender(); 
     });
     
     console.log("スクリプトが実行されています。");
