@@ -51,48 +51,57 @@
     return 139.65; // 既定：横浜
   }
 
-  // ========= 惑星黄経キャッシュ =========
-  let cachedLongitudes = null;
+  // ========= 惑星黄経・黄緯キャッシュ =========
+  // ★ MODIFIED (Phase 1): Cache both longitudes and latitudes
+  let cachedCoordinates = null;
   let cachedDate = null;
 
-  // ========= 天体の黄経（地心）を取得 =========
-  async function computeEclipticLongitudes(date) {
-    const out = {};
+  // ========= 天体の黄経・黄緯（地心）を取得 =========
+  // ★ MODIFIED (Phase 1): Renamed to computeEclipticCoordinates and return both longitudes and latitudes
+  async function computeEclipticCoordinates(date) {
+    const longitudes = {};
+    const latitudes = {};
 
     // ========================================
     // ★ MODIFIED: Use ecliptic longitudes computed by sphere10.js
     // ========================================
-    // Check if sphere10.js has already computed the ecliptic longitudes
+    // Check if sphere10.js has already computed the ecliptic longitudes and latitudes
     if (window.planetEclipticLongitudes && Object.keys(window.planetEclipticLongitudes).length > 0) {
-      console.log('[chart.js] Using ecliptic longitudes from sphere10.js');
+      console.log('[chart.js] Using ecliptic coordinates from sphere10.js');
       for (const p of PLANETS) {
         const elon = window.planetEclipticLongitudes[p.key];
+        const elat = window.planetEclipticLatitudes ? window.planetEclipticLatitudes[p.key] : 0; // ★ ADDED (Phase 1)
         if (elon !== undefined) {
-          out[p.key] = norm360(elon);
-          console.log(`[chart.js] ${p.key}: ${out[p.key].toFixed(2)}° (from sphere10.js)`);
+          longitudes[p.key] = norm360(elon);
+          latitudes[p.key] = elat || 0; // ★ ADDED (Phase 1)
+          console.log(`[chart.js] ${p.key}: lon=${longitudes[p.key].toFixed(2)}°, lat=${latitudes[p.key].toFixed(2)}° (from sphere10.js)`);
         } else {
           console.warn(`[chart.js] ${p.key}: not found in sphere10.js data, using 0°`);
-          out[p.key] = 0;
+          longitudes[p.key] = 0;
+          latitudes[p.key] = 0; // ★ ADDED (Phase 1)
         }
       }
-      return out;
+      return { longitudes, latitudes }; // ★ MODIFIED (Phase 1)
     }
 
     // Fallback: If sphere10.js data is not available, log warning
-    console.warn('[chart.js] sphere10.js ecliptic longitudes not available, using 0° for all planets');
+    console.warn('[chart.js] sphere10.js ecliptic coordinates not available, using 0° for all planets');
     for (const p of PLANETS) {
-      out[p.key] = 0;
+      longitudes[p.key] = 0;
+      latitudes[p.key] = 0; // ★ ADDED (Phase 1)
     }
     // ========================================
     // ★ END MODIFIED
     // ========================================
-    return out;
+    return { longitudes, latitudes }; // ★ MODIFIED (Phase 1)
   }
 
 
 
   // ========= 描画メイン（Step 4 レイアウト） =========
-  function drawChart(ctx, longitudes) {
+  // ★ MODIFIED (Phase 1): Accept coordinates object instead of longitudes only
+  function drawChart(ctx, coordinates) {
+    const { longitudes, latitudes } = coordinates; // ★ ADDED (Phase 1)
     const canvas = ctx.canvas;
 
     // CSS表示サイズを取得
@@ -183,13 +192,25 @@
       const lon = longitudes[p.key];
       if (typeof lon !== 'number') continue;
 
+      // ★ ADDED (Phase 1): Get ecliptic latitude
+      const lat = latitudes[p.key] || 0;
+
       // 惑星の黄経を9時位置基準に変換（♈︎0°=9時=180°）
-      // 黄経0°（♈︎0°）→ 180°、黄経90°（♋︎0°）→ 90°（時計回り）
+      // 黄経0°（♈︎0°）→ 180°、黄経90°（♋0°）→ 90°（時計回り）
       const angleDeg = 180 - lon;
       const angleRad = deg2rad(angleDeg);
 
-      const x = cx + PLANET_RING_R * Math.cos(angleRad);
-      const y = cy + PLANET_RING_R * Math.sin(angleRad);
+      // ★ ADDED (Phase 1): Adjust radius based on ecliptic latitude
+      // Latitude range: -90° to +90°
+      // Scale: 1 + (lat / 90) * 0.15
+      // +90° → radius 115% (outer)
+      //   0° → radius 100% (baseline)
+      // -90° → radius  85% (inner)
+      const latScale = 1 + (lat / 90) * 0.15;
+      const r = PLANET_RING_R * latScale;
+
+      const x = cx + r * Math.cos(angleRad);
+      const y = cy + r * Math.sin(angleRad);
       ctx.fillText(p.glyph, x, y);
     }
 
@@ -205,16 +226,17 @@
 
     const date = getDateFromPage();
 
+    // ★ MODIFIED (Phase 1): Cache coordinates instead of longitudes only
     // 日時が変わった場合のみ再計算
-    if (forceRecompute || !cachedLongitudes || cachedDate?.getTime() !== date.getTime()) {
-      console.log('[chart.js] Recomputing planet longitudes...');
-      cachedLongitudes = await computeEclipticLongitudes(date);
+    if (forceRecompute || !cachedCoordinates || cachedDate?.getTime() !== date.getTime()) {
+      console.log('[chart.js] Recomputing planet coordinates...');
+      cachedCoordinates = await computeEclipticCoordinates(date);
       cachedDate = date;
     } else {
-      console.log('[chart.js] Using cached planet longitudes');
+      console.log('[chart.js] Using cached planet coordinates');
     }
 
-    drawChart(ctx, cachedLongitudes);
+    drawChart(ctx, cachedCoordinates);
   }
 
   // ========= 初期化（トグル/イベント） =========

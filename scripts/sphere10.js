@@ -69,8 +69,20 @@ function initApp() {
     const rotationEWVal = document.getElementById('rotationEWVal');
 
     let angle = 0; 
-    let isPlaying = true;
-    let playbackSpeed = 1; 
+    // ★ MODIFIED (Phase 1): Default to pause for better initial performance
+    let isPlaying = false;
+    let playbackSpeed = 1;
+    
+    // ★ ADDED (Phase 1): Dirty rendering flags
+    let rafId = null;
+    let needsRender = true;
+    
+    // ★ ADDED (Phase 1): Throttle ephemeris calculations
+    let lastEphemerisUpdate = 0;
+    const EPHEMERIS_INTERVAL = 250; // ms
+    
+    // ★ ADDED (Phase 1): Debug values for throttled DOM updates
+    let debugValues = {}; 
 
     let currentDate = new Date();
     let latitude = 35.4333;
@@ -292,14 +304,14 @@ function initApp() {
     let starsVisible = true;
     let showBackSide = false;
     const starToggle = document.getElementById('starToggle');
-    starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); });
+    starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     const backToggle = document.getElementById('backToggle');
-    backToggle.addEventListener('change', () => { showBackSide = backToggle.checked; saveSettings(); });
+    backToggle.addEventListener('change', () => { showBackSide = backToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
     // ★★★ 惑星ラベルの表示フラグ ★★★
     let planetLabelsVisible = false;
     const planetLabelToggle = document.getElementById('planetLabelToggle');
-    planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); });
+    planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
@@ -334,13 +346,13 @@ function initApp() {
         saveSettings();
       }
     });
-    horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); });
-    meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); });
-    equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); });
-    eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); });
-    eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); });
-    ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); });
-    declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); });
+    horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
     // ★★★ 方角表示設定 ★★★
     const directionToggle = document.getElementById('directionToggle');
@@ -350,7 +362,7 @@ function initApp() {
     let directionVisible = directionToggle.checked;
     let directionTextSize = parseInt(directionTextSizeSlider.value, 10);
     let directionTextColor = directionTextColorPicker.value;
-    directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); });
+    directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     directionTextSizeSlider.addEventListener('input', () => {
       directionTextSize = parseInt(directionTextSizeSlider.value, 10);
       directionTextSizeVal.textContent = directionTextSizeSlider.value + "px";
@@ -360,7 +372,7 @@ function initApp() {
     // ★★★ 新規追加: 東西反転トグル ★★★
     let reverseEastWest = false;
     const reverseEWToggle = document.getElementById('reverseEWToggle');
-    reverseEWToggle.addEventListener('change', () => { reverseEastWest = reverseEWToggle.checked; saveSettings(); });
+    reverseEWToggle.addEventListener('change', () => { reverseEastWest = reverseEWToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
     // ★★★ 設定読み込みとUI同期 ★★★
     loadSettings(); // 保存された設定を読み込み
@@ -455,18 +467,21 @@ function initApp() {
       rotationZVal.textContent = rotationZSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
       saveSettings();
+      requestRender(); // ★ ADDED (Phase 1): Request render on user input
     });
     rotationYSlider.addEventListener('input', () => {
       rotationY = rotationYSlider.value * Math.PI / 180;
       rotationYVal.textContent = rotationYSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
       saveSettings();
+      requestRender(); // ★ ADDED (Phase 1): Request render on user input
     });
     rotationEWSlider.addEventListener('input', () => {
       rotationEW = rotationEWSlider.value * Math.PI / 180;
       rotationEWVal.textContent = rotationEWSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
       saveSettings();
+      requestRender(); // ★ ADDED (Phase 1): Request render on user input
     });
 
     // ★★★ マウスドラッグによる回転操作 ★★★
@@ -729,10 +744,10 @@ function initApp() {
       activeButton.classList.add('active');
     }
 
-    playButton.addEventListener('click', () => { isPlaying = true; playbackSpeed = 1; setActiveButton(playButton); });
-    pauseButton.addEventListener('click', () => { isPlaying = false; setActiveButton(pauseButton); });
-    fastForwardButton.addEventListener('click', () => { playbackSpeed = 2; isPlaying = true; setActiveButton(fastForwardButton); });
-    reverseButton.addEventListener('click', () => { playbackSpeed = -1; isPlaying = true; setActiveButton(reverseButton); });
+    playButton.addEventListener('click', () => { isPlaying = true; playbackSpeed = 1; setActiveButton(playButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on play
+    pauseButton.addEventListener('click', () => { isPlaying = false; setActiveButton(pauseButton); }); // ★ MODIFIED (Phase 1): Pause stops animation loop
+    fastForwardButton.addEventListener('click', () => { playbackSpeed = 2; isPlaying = true; setActiveButton(fastForwardButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on fast forward
+    reverseButton.addEventListener('click', () => { playbackSpeed = -1; isPlaying = true; setActiveButton(reverseButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on reverse
 
     let sunRA = 0;  
     let sunDec = 0; 
@@ -766,21 +781,27 @@ function initApp() {
       }
 
       // ========================================
-      // ★ ADDED: Compute ecliptic longitudes for horoscope chart
+      // ★ ADDED: Compute ecliptic longitudes and latitudes for horoscope chart
       // ========================================
       if (!window.planetEclipticLongitudes) {
         window.planetEclipticLongitudes = {};
+      }
+      // ★ ADDED (Phase 1): Ecliptic latitudes
+      if (!window.planetEclipticLatitudes) {
+        window.planetEclipticLatitudes = {};
       }
 
       // Sun
       const vecSun = Astronomy.GeoVector(Astronomy.Body.Sun, time, false);
       const eclSun = Astronomy.Ecliptic(vecSun);
       window.planetEclipticLongitudes.sun = eclSun.elon;
+      window.planetEclipticLatitudes.sun = eclSun.elat; // ★ ADDED (Phase 1)
 
       // Moon
       const vecMoon = Astronomy.GeoVector(Astronomy.Body.Moon, time, false);
       const eclMoon = Astronomy.Ecliptic(vecMoon);
       window.planetEclipticLongitudes.moon = eclMoon.elon;
+      window.planetEclipticLatitudes.moon = eclMoon.elat; // ★ ADDED (Phase 1)
 
       // Planets
       const planetBodies = [
@@ -798,9 +819,11 @@ function initApp() {
         const vec = Astronomy.GeoVector(planet.body, time, false);
         const ecl = Astronomy.Ecliptic(vec);
         window.planetEclipticLongitudes[planet.key] = ecl.elon;
+        window.planetEclipticLatitudes[planet.key] = ecl.elat; // ★ ADDED (Phase 1)
       }
 
       console.log('[sphere10.js] Ecliptic longitudes computed:', window.planetEclipticLongitudes);
+      console.log('[sphere10.js] Ecliptic latitudes computed:', window.planetEclipticLatitudes); // ★ ADDED (Phase 1)
       // ========================================
       // ★ END ADDED
       // ========================================
@@ -1448,8 +1471,16 @@ function initApp() {
     let lastRotationEW = 0;
     let staticElementsCache = null;
     
-    function animate() {
-      requestAnimationFrame(animate);
+    // ★ ADDED (Phase 1): Request render function for dirty rendering
+    function requestRender() {
+      if (rafId === null) {
+        rafId = requestAnimationFrame(renderFrame);
+      }
+    }
+    
+    // ★ MODIFIED (Phase 1): Renamed from animate() to renderFrame()
+    function renderFrame() {
+      rafId = null;
       
       // ★★★ 長時間動作最適化: フレーム共通値の事前計算 ★★★
       const frameTime = Date.now(); // 1回だけ取得
@@ -1457,8 +1488,18 @@ function initApp() {
       if (isPlaying) {
         angle += 0.002 * playbackSpeed;
         currentDate.setSeconds(currentDate.getSeconds() + playbackSpeed);
-        updateAllPositions();
+        
+        // ★ MODIFIED (Phase 1): Throttle ephemeris calculations
+        const now = performance.now();
+        if (now - lastEphemerisUpdate > EPHEMERIS_INTERVAL) {
+          updateAllPositions();
+          lastEphemerisUpdate = now;
+        }
+        
         window.lastRotationTime = frameTime; // 自動回転の検出
+        
+        // ★ ADDED (Phase 1): Continue animation loop
+        requestRender();
       }
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1500,10 +1541,26 @@ function initApp() {
       drawPlanets();
       
       // ★★★ デバッグ情報更新 ★★★
-      updateDebugInfo();
+      // ★ MODIFIED (Phase 1): Store debug values instead of updating DOM directly
+      const lst = (angle * 180 / Math.PI / 15) % 24;
+      debugValues.lst = lst.toFixed(2);
+      debugValues.date = currentDate.toLocaleString();
+      // Other debug values...
     }
 
-    initStars().then(() => { animate(); });
+    // ★ ADDED (Phase 1): Throttled DOM update for debug info
+    setInterval(() => {
+      if (debugValues.lst !== undefined) {
+        const lstDisplay = document.getElementById('lstDisplay');
+        if (lstDisplay) lstDisplay.textContent = debugValues.lst;
+      }
+      if (debugValues.date !== undefined) {
+        const dateDisplay = document.getElementById('dateDisplay');
+        if (dateDisplay) dateDisplay.textContent = debugValues.date;
+      }
+    }, 250);
+    
+    initStars().then(() => { requestRender(); });
   }
   
   // DOMContentLoaded後にinitApp実行
