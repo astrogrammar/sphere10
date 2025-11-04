@@ -6,6 +6,17 @@ let offscreenCanvas = null;
 let offscreenCtx = null;
 let staticCacheValid = false;
 
+// ★ ADDED (Phase 2 - Layer 2): Vertex cache for celestial circles
+let vertexCache = {
+  equator: null,
+  ecliptic: null,
+  eclipticBandUpper: null,
+  eclipticBandLower: null,
+  zodiacDivisions: null,
+  ra12Lines: null,
+  declinationLines: null
+};
+
 // ★★★ 初期化関数 ★★★
 function initApp() {
     // キャンバス要素の取得とサイズ設定
@@ -1246,88 +1257,30 @@ function initApp() {
     }
 
     function drawEquator() {
-      if (!equatorVisible) return; 
-      drawGreatCircle((t) => ({ ra: t, dec: 0 }), "red", 1, false); // false＝実線
+      if (!equatorVisible) return;
+      // ★ MODIFIED (Phase 2 - Layer 2): Use vertex cache
+      drawFromVertexCache(vertexCache.equator, "red", 1, false);
     }
 
     function drawEcliptic() {
-      if (!eclipticVisible) return; 
-      drawGreatCircle((lambda) => {
-        const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
-        const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
-        return { ra, dec };
-      }, "orange", 1, false);
+      if (!eclipticVisible) return;
+      // ★ MODIFIED (Phase 2 - Layer 2): Use vertex cache
+      drawFromVertexCache(vertexCache.ecliptic, "orange", 1, false);
     }
 
     function drawEclipticBand() {
-      if (!eclipticBandVisible) return; 
-      
-      // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      const steps = isRotating ? 90 : 180; // 360 → 90-180 (75-50%削減)
-      
-      function drawLineBeta(betaDeg) {
-        const beta = betaDeg * Math.PI / 180;
-        drawGreatCircle((lambda) => {
-          const dec = Math.asin(Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambda));
-          const ra = Math.atan2(
-            Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambda) - Math.sin(beta) * Math.sin(epsilon),
-            Math.cos(beta) * Math.cos(lambda)
-          );
-          return { ra, dec };
-        }, "orange", 1, false, steps);
-      }
-      drawLineBeta(8);
-      drawLineBeta(-8);
+      if (!eclipticBandVisible) return;
+      // ★ MODIFIED (Phase 2 - Layer 2): Use vertex cache
+      drawFromVertexCache(vertexCache.eclipticBandUpper, "orange", 1, false);
+      drawFromVertexCache(vertexCache.eclipticBandLower, "orange", 1, false);
     }
 
     function drawZodiacDivisions() {
-      if (!eclipticBandVisible) return; 
-      ctx.strokeStyle = "orange";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([]);
-      
-      // ★★★ 最適化: 全ての線を一つのパスにまとめる + 動的品質調整 ★★★
-      ctx.beginPath();
-      const divisions = 12;
-      
-      // 回転状態に応じて描画品質を動的調整
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      const steps = isRotating ? 12 : 20; // 回転中は軽量、静止時は高品質
-      
-      for (let i = 0; i < divisions; i++) {
-        const lambdaConst = i * 30 * Math.PI / 180;
-        let started = false;
-        
-        for (let j = 0; j <= steps; j++) {
-          const beta = -8 * Math.PI / 180 + (16 * Math.PI / 180) * (j / steps);
-          const dec = Math.asin(
-            Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambdaConst)
-          );
-          const ra = Math.atan2(
-            Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambdaConst) - Math.sin(beta) * Math.sin(epsilon),
-            Math.cos(beta) * Math.cos(lambdaConst)
-          );
-          let { x, y, z } = toHorizontal(ra, dec, angle);
-          ({ x, y, z } = applyAllRotations(x, y, z));
-          const p = project(x, y, z);
-          if (p) {
-            if (!started) { 
-              ctx.moveTo(p.sx, p.sy); 
-              started = true; 
-            } else { 
-              ctx.lineTo(p.sx, p.sy); 
-            }
-          } else {
-            // 線が切れる場合は次のmoveToで新しいサブパスを開始
-            started = false;
-          }
-        }
+      if (!eclipticBandVisible) return;
+      // ★ MODIFIED (Phase 2 - Layer 2): Use vertex cache
+      for (const line of vertexCache.zodiacDivisions) {
+        drawFromVertexCache(line, "orange", 1, false);
       }
-      // ★★★ 全ての線を一度に描画 ★★★
-      ctx.stroke();
     }
 
     function drawZodiacSymbols() {
@@ -1358,89 +1311,20 @@ function initApp() {
     }
 
     function drawRA12Lines() {
-      if (!ra12LinesVisible) return; 
-      ctx.strokeStyle = "blue";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 3]);
-      
-      // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      
-      for (let i = 0; i < 12; i++) {
-        const RAconst = i * (30 * Math.PI / 180);
-        let started = false;
-        ctx.beginPath();
-        const steps = isRotating ? 25 : 40; // 50 → 25-40 (50-20%削減)
-        for (let j = 0; j <= steps; j++) {
-          const dec = -Math.PI / 2 + (Math.PI * (j / steps));
-          let { x, y, z } = toHorizontal(RAconst, dec, angle);
-          ({ x, y, z } = applyAllRotations(x, y, z));
-          const p = project(x, y, z);
-          if (p) {
-            if (!started) { 
-              ctx.moveTo(p.sx, p.sy); 
-              started = true; 
-            } else { 
-              ctx.lineTo(p.sx, p.sy); 
-            }
-          } else {
-            if (started) {
-              ctx.stroke();
-              started = false;
-            }
-          }
-        }
-        if (started) { ctx.stroke(); }
+      if (!ra12LinesVisible) return;
+      // ★ MODIFIED (Phase 2 - Layer 2): Use vertex cache
+      for (const line of vertexCache.ra12Lines) {
+        drawFromVertexCache(line, "blue", 1, true);
       }
     }
 
     // ★★★ 赤緯線 (Declination Lines) の描画 ★★★
     function drawDeclinationLines() {
       if (!declinationLinesVisible) return;
-      
-      // 赤道よりも20%暗い赤色を使用
-      ctx.strokeStyle = "#a32929";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 3]); // 点線
-      
-      // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      
-      // -80° から +80° まで 10度間隔で描画
-      for (let decDeg = -80; decDeg <= 80; decDeg += 10) {
-        const decRad = decDeg * Math.PI / 180;
-        let started = false;
-        ctx.beginPath();
-        
-        // 動的品質調整: 回転中は大幅軽量化、静止時は高品質
-        const steps = isRotating ? 24 : 48; // 72 → 24-48 (66-33%削減)
-        for (let i = 0; i <= steps; i++) {
-          const raRad = (i * 360 / steps) * Math.PI / 180;
-          let { x, y, z } = toHorizontal(raRad, decRad, angle);
-          ({ x, y, z } = applyAllRotations(x, y, z));
-          const p = project(x, y, z);
-          
-          if (p) {
-            if (!started) {
-              ctx.moveTo(p.sx, p.sy);
-              started = true;
-            } else {
-              ctx.lineTo(p.sx, p.sy);
-            }
-          } else {
-            if (started) {
-              ctx.stroke();
-              started = false;
-            }
-          }
-        }
-        if (started) { ctx.stroke(); }
+      // ★ MODIFIED (Phase 2 - Layer 2): Use vertex cache
+      for (const line of vertexCache.declinationLines) {
+        drawFromVertexCache(line, "#a32929", 1, true);
       }
-      
-      // 点線リセット
-      ctx.setLineDash([]);
     }
 
     // ★★★ 方角 (Cardinal Directions) の描画 ★★★
@@ -1539,6 +1423,135 @@ function initApp() {
     // ★ ADDED (Phase 2 - Layer 1): Invalidate static cache when rotation changes
     function invalidateStaticCache() {
       staticCacheValid = false;
+    }
+    
+    // ★ ADDED (Phase 2 - Layer 2): Initialize vertex cache for celestial circles
+    function initVertexCache() {
+      const steps = 360;
+      
+      // Equator: RA from 0 to 2π, Dec = 0
+      vertexCache.equator = [];
+      for (let i = 0; i <= steps; i++) {
+        const ra = i * (2 * Math.PI / steps);
+        const dec = 0;
+        vertexCache.equator.push({ ra, dec });
+      }
+      
+      // Ecliptic: Lambda from 0 to 2π
+      vertexCache.ecliptic = [];
+      for (let i = 0; i <= steps; i++) {
+        const lambda = i * (2 * Math.PI / steps);
+        const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
+        const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
+        vertexCache.ecliptic.push({ ra, dec });
+      }
+      
+      // Ecliptic Band Upper (+8°)
+      vertexCache.eclipticBandUpper = [];
+      const beta_upper = 8 * Math.PI / 180;
+      for (let i = 0; i <= steps; i++) {
+        const lambda = i * (2 * Math.PI / steps);
+        const dec = Math.asin(Math.sin(beta_upper) * Math.cos(epsilon) + Math.cos(beta_upper) * Math.sin(epsilon) * Math.sin(lambda));
+        const ra = Math.atan2(
+          Math.cos(beta_upper) * Math.cos(epsilon) * Math.sin(lambda) - Math.sin(beta_upper) * Math.sin(epsilon),
+          Math.cos(beta_upper) * Math.cos(lambda)
+        );
+        vertexCache.eclipticBandUpper.push({ ra, dec });
+      }
+      
+      // Ecliptic Band Lower (-8°)
+      vertexCache.eclipticBandLower = [];
+      const beta_lower = -8 * Math.PI / 180;
+      for (let i = 0; i <= steps; i++) {
+        const lambda = i * (2 * Math.PI / steps);
+        const dec = Math.asin(Math.sin(beta_lower) * Math.cos(epsilon) + Math.cos(beta_lower) * Math.sin(epsilon) * Math.sin(lambda));
+        const ra = Math.atan2(
+          Math.cos(beta_lower) * Math.cos(epsilon) * Math.sin(lambda) - Math.sin(beta_lower) * Math.sin(epsilon),
+          Math.cos(beta_lower) * Math.cos(lambda)
+        );
+        vertexCache.eclipticBandLower.push({ ra, dec });
+      }
+      
+      // Zodiac Divisions (12 lines at 30° intervals)
+      vertexCache.zodiacDivisions = [];
+      for (let sign = 0; sign < 12; sign++) {
+        const lambda0 = sign * 30 * Math.PI / 180;
+        const line = [];
+        for (let betaDeg = -8; betaDeg <= 8; betaDeg += 0.5) {
+          const beta = betaDeg * Math.PI / 180;
+          const dec = Math.asin(Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambda0));
+          const ra = Math.atan2(
+            Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambda0) - Math.sin(beta) * Math.sin(epsilon),
+            Math.cos(beta) * Math.cos(lambda0)
+          );
+          line.push({ ra, dec });
+        }
+        vertexCache.zodiacDivisions.push(line);
+      }
+      
+      // RA 12 Lines (every 30° = 2h)
+      vertexCache.ra12Lines = [];
+      for (let h = 0; h < 12; h++) {
+        const ra0 = h * 30 * Math.PI / 180;
+        const line = [];
+        for (let decDeg = -90; decDeg <= 90; decDeg += 1) {
+          const dec = decDeg * Math.PI / 180;
+          line.push({ ra: ra0, dec });
+        }
+        vertexCache.ra12Lines.push(line);
+      }
+      
+      // Declination Lines (every 30°)
+      vertexCache.declinationLines = [];
+      const decAngles = [-60, -30, 30, 60];
+      for (const decDeg of decAngles) {
+        const dec0 = decDeg * Math.PI / 180;
+        const line = [];
+        for (let i = 0; i <= steps; i++) {
+          const ra = i * (2 * Math.PI / steps);
+          line.push({ ra, dec: dec0 });
+        }
+        vertexCache.declinationLines.push(line);
+      }
+      
+      console.log('[Phase 2 - Layer 2] Vertex cache initialized');
+    }
+    
+    // ★ ADDED (Phase 2 - Layer 2): Draw from vertex cache
+    function drawFromVertexCache(vertices, color, lineWidth = 1, dashed = false) {
+      if (!vertices || vertices.length === 0) return;
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.setLineDash(dashed ? [5, 5] : []);
+      
+      let started = false;
+      ctx.beginPath();
+      
+      for (const vertex of vertices) {
+        let { x, y, z } = toHorizontal(vertex.ra, vertex.dec, angle);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        
+        if (p) {
+          if (!started) {
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            ctx.lineTo(p.sx, p.sy);
+          }
+        } else {
+          if (started) {
+            ctx.stroke();
+            ctx.beginPath();
+            started = false;
+          }
+        }
+      }
+      
+      if (started) {
+        ctx.stroke();
+      }
     }
 
     async function initStars() {
@@ -1654,6 +1667,8 @@ function initApp() {
       }
     }, 250);
     
+    // ★ MODIFIED (Phase 2 - Layer 2): Initialize vertex cache before rendering
+    initVertexCache();
     initStars().then(() => { requestRender(); });
   }
   
