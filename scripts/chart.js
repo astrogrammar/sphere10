@@ -1,6 +1,5 @@
 // ────────────────────────────────────────────────────────────────
-// 2022-11-04
-// Step 5: Horoscope Layout Refactor　
+// Horoscope Layout Refactor
 // サインを外周、惑星を内周に分離。♈︎を9時位置固定。
 // 背景は円形・半透明。トグルボタン #toggleChartBtn で表示/非表示。
 // ────────────────────────────────────────────────────────────────
@@ -14,7 +13,7 @@
   // 色設定（CSS変数と連動）
   const SIGN_COLOR = '#888888';
   const PLANET_COLOR = '#FFFFFF';
-  const BACKGROUND_RGBA = 'rgba(0,0,0,0.6)';
+  const BACKGROUND_RGBA = 'rgba(0,0,0,0.8)';
 
   // 10天体（表示順は任意、記号は度数非表示）
   const PLANETS = [
@@ -131,7 +130,7 @@
 
     // Step 4 要件：半径設定
     const SIGN_RING_R   = 0.95 * R;  // 外周（サインリング）
-    const PLANET_RING_R = 0.70 * R;  // 内周（惑星リング）
+    const PLANET_RING_R = 0.65 * R;  // 内周（惑星リング）
 
     ctx.save();
 
@@ -150,7 +149,7 @@
 
     // 惑星リング
     ctx.lineWidth = 1.0;
-    ctx.strokeStyle = PLANET_COLOR;
+    ctx.strokeStyle = "orange";//　PLANET_COLOR
     ctx.beginPath();
     ctx.arc(cx, cy, PLANET_RING_R, 0, Math.PI * 2);
     ctx.stroke();
@@ -175,7 +174,9 @@
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
+      ctx.strokeStyle = 'rgba(80, 80, 80, 1.0)';
       ctx.stroke();
+
 
       // サイン記号（各ハウスの中央）
       const midAngleDeg = angleDeg - 15;
