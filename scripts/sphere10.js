@@ -1,5 +1,10 @@
-// Sphere10 ver.2.0 - 天球シミュレーター
+// sphere10.js
 // 古典占星術向けの3D天球表示アプリケーション
+
+// ★ ADDED (Phase 2 - Layer 1): Global raster cache variables
+let offscreenCanvas = null;
+let offscreenCtx = null;
+let staticCacheValid = false;
 
 // ★★★ 初期化関数 ★★★
 function initApp() {
@@ -15,6 +20,12 @@ function initApp() {
     let scale = w * 0.35 * zoom;
     const centerX = w / 2;
     const centerY = h / 2;
+    
+    // ★ ADDED (Phase 2 - Layer 1): Initialize offscreen canvas for raster cache
+    offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = w;
+    offscreenCanvas.height = h;
+    offscreenCtx = offscreenCanvas.getContext('2d');
 
     // ★★★ タッチ操作対応（iPadサポート） ★★★
     let initialTouchDistance = null;
@@ -376,6 +387,7 @@ function initApp() {
     showAltGrid = setupPersistentToggle(altGridToggle, 'showAltGrid', showAltGrid, (value, isInitial) => {
       showAltGrid = value;
       if (!isInitial) {
+        invalidateStaticCache(); // ★ ADDED (Phase 2 - Layer 1)
         saveSettings();
       }
     });
@@ -386,10 +398,11 @@ function initApp() {
     showZenithNadir = setupPersistentToggle(zenithNadirToggle, 'showZenithNadir', showZenithNadir, (value, isInitial) => {
       showZenithNadir = value;
       if (!isInitial) {
+        invalidateStaticCache(); // ★ ADDED (Phase 2 - Layer 1)
         saveSettings();
       }
     });
-    horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); invalidateStaticCache(); requestRender(); }); // ★ MODIFIED (Phase 1, Phase 2 - Layer 1)
     meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
@@ -405,12 +418,14 @@ function initApp() {
     let directionVisible = directionToggle.checked;
     let directionTextSize = parseInt(directionTextSizeSlider.value, 10);
     let directionTextColor = directionTextColorPicker.value;
-    directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); invalidateStaticCache(); requestRender(); }); // ★ MODIFIED (Phase 1, Phase 2 - Layer 1)
     directionTextSizeSlider.addEventListener('input', () => {
       directionTextSize = parseInt(directionTextSizeSlider.value, 10);
       directionTextSizeVal.textContent = directionTextSizeSlider.value + "px";
+      invalidateStaticCache(); // ★ ADDED (Phase 2 - Layer 1)
+      requestRender(); // ★ ADDED (Phase 2 - Layer 1)
     });
-    directionTextColorPicker.addEventListener('input', () => { directionTextColor = directionTextColorPicker.value; });
+    directionTextColorPicker.addEventListener('input', () => { directionTextColor = directionTextColorPicker.value; invalidateStaticCache(); requestRender(); }); // ★ MODIFIED (Phase 2 - Layer 1)
 
     // ★★★ 新規追加: 東西反転トグル ★★★
     let reverseEastWest = false;
@@ -1496,6 +1511,35 @@ function initApp() {
 
       ctx.restore();
     }
+    
+    // ★ ADDED (Phase 2 - Layer 1): Render static elements to offscreen canvas
+    function renderStaticElementsToCache() {
+      if (!offscreenCtx) return;
+      
+      // Clear offscreen canvas
+      offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+      
+      // Temporarily swap ctx with offscreenCtx
+      const originalCtx = ctx;
+      ctx = offscreenCtx;
+      
+      // Draw static elements to offscreen canvas
+      drawHorizon();
+      drawAltitudeGrid();
+      drawCardinalDirections();
+      drawZenithNadir();
+      
+      // Restore original ctx
+      ctx = originalCtx;
+      
+      // Mark cache as valid
+      staticCacheValid = true;
+    }
+    
+    // ★ ADDED (Phase 2 - Layer 1): Invalidate static cache when rotation changes
+    function invalidateStaticCache() {
+      staticCacheValid = false;
+    }
 
     async function initStars() {
       const rawStars = await loadStars();
@@ -1559,6 +1603,8 @@ function initApp() {
         lastRotationY = rotationY; 
         lastRotationEW = rotationEW;
         window.lastRotationTime = frameTime;
+        // ★ ADDED (Phase 2 - Layer 1): Invalidate static cache on rotation change
+        invalidateStaticCache();
       }
       
       // 回転状態をグローバルに共有（各描画関数でDate.now()呼び出し不要）
@@ -1566,8 +1612,14 @@ function initApp() {
       
       // 背景要素の描画（一部を条件付きで最適化）
       drawStars();
-      drawHorizon();
-      drawAltitudeGrid();
+      
+      // ★ MODIFIED (Phase 2 - Layer 1): Use raster cache for static elements
+      if (!staticCacheValid) {
+        renderStaticElementsToCache();
+      }
+      // Blit cached static elements to main canvas
+      ctx.drawImage(offscreenCanvas, 0, 0);
+      
       drawMeridian();
       drawEquator();
       drawEcliptic();
@@ -1576,8 +1628,6 @@ function initApp() {
       drawZodiacSymbols();
       drawRA12Lines();
       drawDeclinationLines();
-      drawCardinalDirections();
-      drawZenithNadir();
 
       // 太陽系天体の描画（常に更新が必要）
       drawSun();
