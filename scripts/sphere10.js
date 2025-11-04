@@ -1470,21 +1470,122 @@ function initApp() {
       // Clear offscreen canvas
       offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
       
-      // Temporarily swap ctx with offscreenCtx
-      const originalCtx = ctx;
-      ctx = offscreenCtx;
-      
-      // Draw static elements to offscreen canvas
-      drawHorizon();
-      drawAltitudeGrid();
-      drawCardinalDirections();
-      drawZenithNadir();
-      
-      // Restore original ctx
-      ctx = originalCtx;
+      // Draw static elements to offscreen canvas using offscreenCtx
+      drawHorizonToContext(offscreenCtx);
+      drawAltitudeGridToContext(offscreenCtx);
+      drawCardinalDirectionsToContext(offscreenCtx);
+      drawZenithNadirToContext(offscreenCtx);
       
       // Mark cache as valid
       staticCacheValid = true;
+    }
+    
+    // ★ ADDED (Phase 2 - Layer 1): Helper functions to draw to specific context
+    function drawHorizonToContext(targetCtx) {
+      if (!horizonVisible) return;
+      targetCtx.strokeStyle = "green";
+      targetCtx.lineWidth = 1;
+      targetCtx.setLineDash([]);
+      targetCtx.beginPath();
+      let started = false;
+      const steps = 360;
+      for (let i = 0; i <= steps; i++) {
+        const az = i * (2 * Math.PI / steps);
+        const alt = 0;
+        let x = Math.cos(alt) * Math.sin(az);
+        let y = -Math.cos(alt) * Math.cos(az);
+        let z = Math.sin(alt);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        if (p) {
+          if (!started) { 
+            targetCtx.moveTo(p.sx, p.sy); 
+            started = true; 
+          } else { 
+            targetCtx.lineTo(p.sx, p.sy); 
+          }
+        } else {
+          if (started) {
+            targetCtx.stroke();
+            started = false;
+          }
+        }
+      }
+      if (started) { targetCtx.stroke(); }
+    }
+    
+    function drawAltitudeGridToContext(targetCtx) {
+      if (!showAltGrid) return;
+      targetCtx.strokeStyle = "green";
+      targetCtx.lineWidth = 1;
+      targetCtx.setLineDash([5, 3]);
+      for (let altDeg = 10; altDeg <= 80; altDeg += 10) {
+        const alt = altDeg * Math.PI / 180;
+        let started = false;
+        targetCtx.beginPath();
+        const steps = 360;
+        for (let i = 0; i <= steps; i++) {
+          const az = i * (2 * Math.PI / steps);
+          let x = Math.cos(alt) * Math.sin(az);
+          let y = -Math.cos(alt) * Math.cos(az);
+          let z = Math.sin(alt);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            if (!started) { 
+              targetCtx.moveTo(p.sx, p.sy); 
+              started = true; 
+            } else { 
+              targetCtx.lineTo(p.sx, p.sy); 
+            }
+          } else {
+            if (started) {
+              targetCtx.stroke();
+              started = false;
+            }
+          }
+        }
+        if (started) { targetCtx.stroke(); }
+      }
+      targetCtx.setLineDash([]);
+    }
+    
+    function drawCardinalDirectionsToContext(targetCtx) {
+      if (!directionVisible) return;
+      const directions = [
+        { az: 0, label: "N" },
+        { az: Math.PI / 2, label: "E" },
+        { az: Math.PI, label: "S" },
+        { az: 3 * Math.PI / 2, label: "W" }
+      ];
+      targetCtx.font = `${directionTextSize}px sans-serif`;
+      targetCtx.fillStyle = directionTextColor;
+      targetCtx.textAlign = "center";
+      targetCtx.textBaseline = "middle";
+      for (const dir of directions) {
+        let x = Math.cos(0) * Math.sin(dir.az);
+        let y = -Math.cos(0) * Math.cos(dir.az);
+        let z = Math.sin(0);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        if (p) targetCtx.fillText(dir.label, p.sx, p.sy);
+      }
+    }
+    
+    function drawZenithNadirToContext(targetCtx) {
+      if (!showZenithNadir) return;
+      const zenith = { x: 0, y: 0, z: 1, label: "Z" };
+      const nadir = { x: 0, y: 0, z: -1, label: "N" };
+      targetCtx.font = "16px sans-serif";
+      targetCtx.fillStyle = "orange";
+      targetCtx.textAlign = "center";
+      targetCtx.textBaseline = "middle";
+      for (const point of [zenith, nadir]) {
+        let { x, y, z } = point;
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        if (p) targetCtx.fillText(point.label, p.sx, p.sy);
+      }
     }
     
     // ★ ADDED (Phase 2 - Layer 1): Invalidate static cache when rotation changes
