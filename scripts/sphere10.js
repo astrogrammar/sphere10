@@ -1,6 +1,6 @@
 // Sphere10 ver.2.0 - 天球シミュレーター
 // Codex/phase1 optimization and latitude #23
-// branch:codex/phase1-optimization-and-latitude, comit:
+// branch:codex/phase1-optimization-and-latitude, comit:f8fe59a
 
 // ★★★ 初期化関数 ★★★
 function initApp() {
@@ -1110,7 +1110,7 @@ function initApp() {
     function drawHorizon() {
       if (!horizonVisible) return;
       ctx.strokeStyle = "green";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.setLineDash([]);
       ctx.beginPath();
       let started = false;
@@ -1144,9 +1144,9 @@ function initApp() {
       if (!showAltGrid) return;
 
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([]);
 
       const currentTime = window.currentFrameTime || Date.now();
       const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
@@ -1228,9 +1228,9 @@ function initApp() {
           const ra = angle; 
           return { ra, dec };
         },
-        "green",
+        "#003cb3",
         2,
-        true,
+        false,
         360
       ); // false＝実線
     }
@@ -1246,7 +1246,7 @@ function initApp() {
         const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
         const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
         return { ra, dec };
-      }, "orange", 1, false);
+      }, "orange", 2, false);
     }
 
     function drawEclipticBand() {
@@ -1349,9 +1349,9 @@ function initApp() {
 
     function drawRA12Lines() {
       if (!ra12LinesVisible) return; 
-      ctx.strokeStyle = "blue";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 3]);
+      ctx.strokeStyle = 'rgba(50, 50, 255,1.0)';
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([]);
       
       // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
       const currentTime = window.currentFrameTime || Date.now();
@@ -1390,9 +1390,9 @@ function initApp() {
       if (!declinationLinesVisible) return;
       
       // 赤道よりも20%暗い赤色を使用
-      ctx.strokeStyle = "#a32929";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 3]); // 点線
+     ctx.strokeStyle =  'rgba(255, 0, 0, 0.5)'; //"#611717",#a32929
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([]); // 点線
       
       // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
       const currentTime = window.currentFrameTime || Date.now();
