@@ -17,6 +17,19 @@ let vertexCache = {
   declinationLines: null
 };
 
+// ★ ADDED (Phase 2 - Layer 3): 3D coordinate cache for stars and celestial bodies
+let starsCache = {
+  coords: null,  // Pre-computed 3D coordinates (x, y, z) for stars
+  lastAngle: null,  // Last LST angle used for computation
+  lastLatitude: null  // Last latitude used for computation
+};
+
+let bodiesCache = {
+  sun: { x: 0, y: 0, z: 0, lastRA: null, lastDec: null },
+  moon: { x: 0, y: 0, z: 0, lastRA: null, lastDec: null },
+  planets: []  // Array of { x, y, z, lastRA, lastDec } for each planet
+};
+
 // ★★★ 初期化関数 ★★★
 function initApp() {
     // キャンバス要素の取得とサイズ設定
@@ -1004,25 +1017,37 @@ function initApp() {
       return degrees + minutes / 60 + seconds / 3600;
     }
 
-    // ★★★ 最適化された恒星描画 - バッチ処理 ★★★
+    // ★★★ 最適化された恒星描画 - バッチ処理 + 3D座標キャッシュ ★★★
     function drawStars() {
       if (!starsVisible) return;
       
-      const drawStart = debugMode ? performance.now() : 0; 
+      const drawStart = debugMode ? performance.now() : 0;
+      
+      // ★ ADDED (Phase 2 - Layer 3): Update stars cache if angle or latitude changed
+      if (starsCache.coords === null || starsCache.lastAngle !== angle || starsCache.lastLatitude !== latitude) {
+        starsCache.coords = [];
+        for (const star of starsData) {
+          const ra = star.RAdeg * Math.PI / 180;
+          const dec = star.Decdeg * Math.PI / 180;
+          const { x, y, z } = toHorizontal(ra, dec, angle);
+          starsCache.coords.push({ x, y, z, vmag: star.Vmag });
+        }
+        starsCache.lastAngle = angle;
+        starsCache.lastLatitude = latitude;
+      }
       
       // 星を色とサイズでグループ化してバッチ描画
       const starGroups = new Map();
       
-      for (const star of starsData) {
-        const ra = star.RAdeg * Math.PI / 180;
-        const dec = star.Decdeg * Math.PI / 180;
-        let { x, y, z } = toHorizontal(ra, dec, angle);
+      // ★ MODIFIED (Phase 2 - Layer 3): Use cached 3D coordinates
+      for (const cachedStar of starsCache.coords) {
+        let { x, y, z } = cachedStar;
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         
         if (p) {
-          const size = getStarSize(star.Vmag);
-          const color = getStarColor(star.Vmag);
+          const size = getStarSize(cachedStar.vmag);
+          const color = getStarColor(cachedStar.vmag);
           const key = `${color}_${size}`;
           
           if (!starGroups.has(key)) {
@@ -1053,11 +1078,23 @@ function initApp() {
       }
     }
 
-    // ★★★ 最適化された太陽描画 ★★★
+    // ★★★ 最適化された太陽描画 + 3D座標キャッシュ ★★★
     function drawSun() {
       const sunRA_rad = (sunRA * 15) * Math.PI / 180;
       const sunDec_rad = sunDec * Math.PI / 180;
-      let { x, y, z } = toHorizontal(sunRA_rad, sunDec_rad, angle);
+      
+      // ★ ADDED (Phase 2 - Layer 3): Update sun cache if RA/Dec changed
+      if (bodiesCache.sun.lastRA !== sunRA || bodiesCache.sun.lastDec !== sunDec) {
+        const { x, y, z } = toHorizontal(sunRA_rad, sunDec_rad, angle);
+        bodiesCache.sun.x = x;
+        bodiesCache.sun.y = y;
+        bodiesCache.sun.z = z;
+        bodiesCache.sun.lastRA = sunRA;
+        bodiesCache.sun.lastDec = sunDec;
+      }
+      
+      // ★ MODIFIED (Phase 2 - Layer 3): Use cached 3D coordinates
+      let { x, y, z } = bodiesCache.sun;
       ({ x, y, z } = applyAllRotations(x, y, z));
       const p = project(x, y, z);
       if (p) {
@@ -1087,7 +1124,19 @@ function initApp() {
     function drawMoon() {
       const moonRA_rad = (moonRA * 15) * Math.PI / 180;
       const moonDec_rad = moonDec * Math.PI / 180;
-      let { x, y, z } = toHorizontal(moonRA_rad, moonDec_rad, angle);
+      
+      // ★ ADDED (Phase 2 - Layer 3): Update moon cache if RA/Dec changed
+      if (bodiesCache.moon.lastRA !== moonRA || bodiesCache.moon.lastDec !== moonDec) {
+        const { x, y, z } = toHorizontal(moonRA_rad, moonDec_rad, angle);
+        bodiesCache.moon.x = x;
+        bodiesCache.moon.y = y;
+        bodiesCache.moon.z = z;
+        bodiesCache.moon.lastRA = moonRA;
+        bodiesCache.moon.lastDec = moonDec;
+      }
+      
+      // ★ MODIFIED (Phase 2 - Layer 3): Use cached 3D coordinates
+      let { x, y, z } = bodiesCache.moon;
       ({ x, y, z } = applyAllRotations(x, y, z));
       const p = project(x, y, z);
       if (p) {
@@ -1108,10 +1157,28 @@ function initApp() {
     }
 
     function drawPlanets() {
-      for (const pData of planetData) {
+      // ★ ADDED (Phase 2 - Layer 3): Initialize planets cache if needed
+      if (bodiesCache.planets.length !== planetData.length) {
+        bodiesCache.planets = planetData.map(() => ({ x: 0, y: 0, z: 0, lastRA: null, lastDec: null }));
+      }
+      
+      for (let i = 0; i < planetData.length; i++) {
+        const pData = planetData[i];
         const raRad = (pData.RA * 15) * Math.PI / 180;
         const decRad = pData.Dec * Math.PI / 180;
-        let { x, y, z } = toHorizontal(raRad, decRad, angle);
+        
+        // ★ ADDED (Phase 2 - Layer 3): Update planet cache if RA/Dec changed
+        if (bodiesCache.planets[i].lastRA !== pData.RA || bodiesCache.planets[i].lastDec !== pData.Dec) {
+          const { x, y, z } = toHorizontal(raRad, decRad, angle);
+          bodiesCache.planets[i].x = x;
+          bodiesCache.planets[i].y = y;
+          bodiesCache.planets[i].z = z;
+          bodiesCache.planets[i].lastRA = pData.RA;
+          bodiesCache.planets[i].lastDec = pData.Dec;
+        }
+        
+        // ★ MODIFIED (Phase 2 - Layer 3): Use cached 3D coordinates
+        let { x, y, z } = bodiesCache.planets[i];
         ({ x, y, z } = applyAllRotations(x, y, z));
         const projPos = project(x, y, z);
         if (projPos) {
