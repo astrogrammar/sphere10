@@ -1,5 +1,6 @@
 // ────────────────────────────────────────────────────────────────
-// Step 4: Horoscope Layout Refactor
+// 2022-11-04
+// Step 5: Horoscope Layout Refactor　
 // サインを外周、惑星を内周に分離。♈︎を9時位置固定。
 // 背景は円形・半透明。トグルボタン #toggleChartBtn で表示/非表示。
 // ────────────────────────────────────────────────────────────────
@@ -130,7 +131,7 @@
 
     // Step 4 要件：半径設定
     const SIGN_RING_R   = 0.95 * R;  // 外周（サインリング）
-    const PLANET_RING_R = 0.85 * R;  // 内周（惑星リング）
+    const PLANET_RING_R = 0.70 * R;  // 内周（惑星リング）
 
     ctx.save();
 
@@ -203,11 +204,10 @@
       // ★ ADDED (Phase 1): Adjust radius based on ecliptic latitude
       // Latitude range: -90° to +90°
       // Scale: 1 + (lat / 90) * 0.15
-      // ★ MODIFIED (Phase 1): Increased scale factor for better visibility
-      // +90° → radius 150% (outer)
+      // +90° → radius 115% (outer)
       //   0° → radius 100% (baseline)
-      // -90° → radius  50% (inner)
-      const latScale = 1 + (lat / 90) * 0.5;
+      // -90° → radius  85% (inner)
+      const latScale = 1 + (lat / 90) * 5.0;
       const r = PLANET_RING_R * latScale;
 
       const x = cx + r * Math.cos(angleRad);
