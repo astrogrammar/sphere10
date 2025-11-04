@@ -203,10 +203,11 @@
       // ★ ADDED (Phase 1): Adjust radius based on ecliptic latitude
       // Latitude range: -90° to +90°
       // Scale: 1 + (lat / 90) * 0.15
-      // +90° → radius 115% (outer)
+      // ★ MODIFIED (Phase 1): Increased scale factor for better visibility
+      // +90° → radius 150% (outer)
       //   0° → radius 100% (baseline)
-      // -90° → radius  85% (inner)
-      const latScale = 1 + (lat / 90) * 0.15;
+      // -90° → radius  50% (inner)
+      const latScale = 1 + (lat / 90) * 0.5;
       const r = PLANET_RING_R * latScale;
 
       const x = cx + r * Math.cos(angleRad);
