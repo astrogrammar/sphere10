@@ -22,7 +22,17 @@ function initApp() {
 
     // タッチイベントリスナー
     canvas.addEventListener('touchstart', (e) => {
+        // ★ ADDED (Phase 1 fix): 1本指ドラッグで回転
+        if (e.touches.length === 1) {
+            isDragging = true;
+            const touch = e.touches[0];
+            lastMouseX = touch.clientX;
+            lastMouseY = touch.clientY;
+        }
+        
+        // 2本指でピンチ（ズーム）
         if (e.touches.length === 2) {
+            isDragging = false; // ★ ADDED: ピンチ操作開始時はドラッグを無効化
             const dx = e.touches[0].clientX - e.touches[1].clientX;
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             initialTouchDistance = Math.hypot(dx, dy);
@@ -30,6 +40,30 @@ function initApp() {
         }
     });
     canvas.addEventListener('touchmove', (e) => {
+        // ★ ADDED (Phase 1 fix): 1本指ドラッグで回転
+        if (e.touches.length === 1 && isDragging) {
+            const touch = e.touches[0];
+            const dx = touch.clientX - lastMouseX;
+            const dy = touch.clientY - lastMouseY;
+            
+            rotationZ += dx * 0.005;
+            rotationY += dy * 0.005;
+            
+            window.lastRotationTime = Date.now();
+            
+            lastMouseX = touch.clientX;
+            lastMouseY = touch.clientY;
+            
+            rotationZSlider.value = (rotationZ * 180 / Math.PI).toFixed(0);
+            rotationZVal.textContent = rotationZSlider.value + "°";
+            rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
+            rotationYVal.textContent = rotationYVal.value + "°";
+            
+            e.preventDefault();
+            requestRender();
+        }
+        
+        // 2本指でピンチ（ズーム）
         if (e.touches.length === 2 && initialTouchDistance !== null) {
             const dx = e.touches[0].clientX - e.touches[1].clientX;
             const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -42,6 +76,13 @@ function initApp() {
         }
     });
     canvas.addEventListener('touchend', (e) => {
+        // ★ ADDED (Phase 1 fix): ドラッグ終了
+        if (e.touches.length < 1) {
+            isDragging = false;
+            saveSettings(); // ★ ADDED: ドラッグ終了時に保存
+        }
+        
+        // ピンチ終了
         if (e.touches.length < 2) {
             initialTouchDistance = null;
         }
