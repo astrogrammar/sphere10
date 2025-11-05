@@ -1083,11 +1083,44 @@ function initApp() {
       }
     }
 
+    // ★★★ Phase 2 - Layer 2: 惑星ラベルの3D座標キャッシュ ★★★
+    const planetLabelCache = {
+      coords: null,        // 惑星の3D座標配列
+      lastAngle: null,     // 前回のLST角度
+      lastLatitude: null,  // 前回の緯度
+      lastRA: null,        // 前回のRA配列（惑星位置変化検出用）
+      lastDec: null        // 前回のDec配列（惑星位置変化検出用）
+    };
+
     function drawPlanets() {
-      for (const pData of planetData) {
-        const raRad = (pData.RA * 15) * Math.PI / 180;
-        const decRad = pData.Dec * Math.PI / 180;
-        let { x, y, z } = toHorizontal(raRad, decRad, angle);
+      // ★★★ Phase 2 - Layer 2: angleまたはlatitudeまたは惑星位置が変化した時のみ3D座標を再計算 ★★★
+      const currentRA = planetData.map(p => p.RA);
+      const currentDec = planetData.map(p => p.Dec);
+      
+      const angleChanged = planetLabelCache.lastAngle !== angle;
+      const latitudeChanged = planetLabelCache.lastLatitude !== latitude;
+      const planetPositionChanged = 
+        !planetLabelCache.lastRA || 
+        !planetLabelCache.lastDec ||
+        currentRA.some((ra, i) => ra !== planetLabelCache.lastRA[i]) ||
+        currentDec.some((dec, i) => dec !== planetLabelCache.lastDec[i]);
+      
+      if (angleChanged || latitudeChanged || planetPositionChanged || planetLabelCache.coords === null) {
+        planetLabelCache.coords = planetData.map(pData => {
+          const raRad = (pData.RA * 15) * Math.PI / 180;
+          const decRad = pData.Dec * Math.PI / 180;
+          return toHorizontal(raRad, decRad, angle);
+        });
+        planetLabelCache.lastAngle = angle;
+        planetLabelCache.lastLatitude = latitude;
+        planetLabelCache.lastRA = currentRA;
+        planetLabelCache.lastDec = currentDec;
+      }
+      
+      // キャッシュされた3D座標を使用して描画
+      for (let i = 0; i < planetData.length; i++) {
+        const pData = planetData[i];
+        let { x, y, z } = planetLabelCache.coords[i];
         ({ x, y, z } = applyAllRotations(x, y, z));
         const projPos = project(x, y, z);
         if (projPos) {
