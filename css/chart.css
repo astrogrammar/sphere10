@@ -1,0 +1,79 @@
+:root {
+  color-scheme: dark;
+  /* Chart color variables */
+  --chart-sign-color: #888888;
+  --chart-planet-color: #ffffff;
+  --chart-stroke: #888888;
+  --chart-bg: rgba(0,0,0,0.6);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* body スタイルはindex.htmlで定義されているため削除 */
+
+.chart-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+#chartCanvas {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 600px;
+  height: 600px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.chart-toggle {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 24px;
+  line-height: 48px;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  border: none;
+  outline: none;
+  touch-action: manipulation;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chart-toggle:is(:hover, :focus-visible) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.chart-toggle:active {
+  transform: scale(0.96);
+}
+
+.chart-toggle[aria-pressed="true"] {
+  background: rgba(255, 94, 0, 0.75);
+}
+
+@media (max-width: 480px) {
+  .chart-toggle {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+#chartCanvas {
+  display: none;
+}

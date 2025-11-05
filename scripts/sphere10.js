@@ -1,5 +1,6 @@
-// Sphere10 - 天球シミュレーター
-// 古典占星術向けの3D天球表示アプリケーション
+// Sphere10 ver.2.0 - 天球シミュレーター
+// Codex/phase1 optimization and latitude #23
+// branch:codex/phase1-optimization-and-latitude, comit:f8fe59a
 
 // ★★★ 初期化関数 ★★★
 function initApp() {
@@ -12,7 +13,7 @@ function initApp() {
     const w = canvas.width;
     const h = canvas.height;
     let zoom = 1.0;
-    let scale = w * 0.35 * zoom;
+    let scale = w * 0.4 * zoom;
     const centerX = w / 2;
     const centerY = h / 2;
 
@@ -22,7 +23,17 @@ function initApp() {
 
     // タッチイベントリスナー
     canvas.addEventListener('touchstart', (e) => {
+        // ★ ADDED (Phase 1 fix): 1本指ドラッグで回転
+        if (e.touches.length === 1) {
+            isDragging = true;
+            const touch = e.touches[0];
+            lastMouseX = touch.clientX;
+            lastMouseY = touch.clientY;
+        }
+        
+        // 2本指でピンチ（ズーム）
         if (e.touches.length === 2) {
+            isDragging = false; // ★ ADDED: ピンチ操作開始時はドラッグを無効化
             const dx = e.touches[0].clientX - e.touches[1].clientX;
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             initialTouchDistance = Math.hypot(dx, dy);
@@ -30,6 +41,30 @@ function initApp() {
         }
     });
     canvas.addEventListener('touchmove', (e) => {
+        // ★ ADDED (Phase 1 fix): 1本指ドラッグで回転
+        if (e.touches.length === 1 && isDragging) {
+            const touch = e.touches[0];
+            const dx = touch.clientX - lastMouseX;
+            const dy = touch.clientY - lastMouseY;
+            
+            rotationZ += dx * 0.005;
+            rotationY += dy * 0.005;
+            
+            window.lastRotationTime = Date.now();
+            
+            lastMouseX = touch.clientX;
+            lastMouseY = touch.clientY;
+            
+            rotationZSlider.value = (rotationZ * 180 / Math.PI).toFixed(0);
+            rotationZVal.textContent = rotationZSlider.value + "°";
+            rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
+            rotationYVal.textContent = rotationYVal.value + "°";
+            
+            e.preventDefault();
+            requestRender();
+        }
+        
+        // 2本指でピンチ（ズーム）
         if (e.touches.length === 2 && initialTouchDistance !== null) {
             const dx = e.touches[0].clientX - e.touches[1].clientX;
             const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -38,9 +73,17 @@ function initApp() {
             zoom = Math.min(Math.max(zoom, 0.1), 10);
             scale = w * 0.4 * zoom;
             e.preventDefault();
+            requestRender();
         }
     });
     canvas.addEventListener('touchend', (e) => {
+        // ★ ADDED (Phase 1 fix): ドラッグ終了
+        if (e.touches.length < 1) {
+            isDragging = false;
+            saveSettings(); // ★ ADDED: ドラッグ終了時に保存
+        }
+        
+        // ピンチ終了
         if (e.touches.length < 2) {
             initialTouchDistance = null;
         }
@@ -53,6 +96,7 @@ function initApp() {
         zoom += delta;
         zoom = Math.min(Math.max(zoom, 0.1), 10);
         scale = w * 0.4 * zoom;
+        requestRender(); 
     });
     
     console.log("スクリプトが実行されています。");
@@ -69,8 +113,20 @@ function initApp() {
     const rotationEWVal = document.getElementById('rotationEWVal');
 
     let angle = 0; 
-    let isPlaying = true;
-    let playbackSpeed = 1; 
+    // ★ MODIFIED (Phase 1): Default to pause for better initial performance
+    let isPlaying = false;
+    let playbackSpeed = 1;
+    
+    // ★ ADDED (Phase 1): Dirty rendering flags
+    let rafId = null;
+    let needsRender = true;
+    
+    // ★ ADDED (Phase 1): Throttle ephemeris calculations
+    let lastEphemerisUpdate = 0;
+    const EPHEMERIS_INTERVAL = 250; // ms
+    
+    // ★ ADDED (Phase 1): Debug values for throttled DOM updates
+    let debugValues = {}; 
 
     let currentDate = new Date();
     let latitude = 35.4333;
@@ -115,6 +171,8 @@ function initApp() {
         if (saved) {
           const settings = JSON.parse(saved);
           let usedLegacyZenithNadir = false;
+          zoom = 1.0;
+          scale = w * 0.4 * zoom; 
           // 各値を復元（デフォルト値をフォールバック）
           latitude = settings.latitude ?? 35.4333;
           rotationZ = settings.rotationZ ?? 0;
@@ -292,14 +350,14 @@ function initApp() {
     let starsVisible = true;
     let showBackSide = false;
     const starToggle = document.getElementById('starToggle');
-    starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); });
+    starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     const backToggle = document.getElementById('backToggle');
-    backToggle.addEventListener('change', () => { showBackSide = backToggle.checked; saveSettings(); });
+    backToggle.addEventListener('change', () => { showBackSide = backToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
     // ★★★ 惑星ラベルの表示フラグ ★★★
     let planetLabelsVisible = false;
     const planetLabelToggle = document.getElementById('planetLabelToggle');
-    planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); });
+    planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
@@ -322,6 +380,7 @@ function initApp() {
       showAltGrid = value;
       if (!isInitial) {
         saveSettings();
+        requestRender();  // ★ ADDED: Request re-render when toggle changes
       }
     });
     const migratedZenithNadir = migrateZenithNadirPreference();
@@ -332,15 +391,16 @@ function initApp() {
       showZenithNadir = value;
       if (!isInitial) {
         saveSettings();
+        requestRender();  // ★ ADDED: Request re-render when toggle changes
       }
     });
-    horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); });
-    meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); });
-    equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); });
-    eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); });
-    eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); });
-    ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); });
-    declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); });
+    horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
     // ★★★ 方角表示設定 ★★★
     const directionToggle = document.getElementById('directionToggle');
@@ -350,7 +410,7 @@ function initApp() {
     let directionVisible = directionToggle.checked;
     let directionTextSize = parseInt(directionTextSizeSlider.value, 10);
     let directionTextColor = directionTextColorPicker.value;
-    directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); });
+    directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     directionTextSizeSlider.addEventListener('input', () => {
       directionTextSize = parseInt(directionTextSizeSlider.value, 10);
       directionTextSizeVal.textContent = directionTextSizeSlider.value + "px";
@@ -360,7 +420,7 @@ function initApp() {
     // ★★★ 新規追加: 東西反転トグル ★★★
     let reverseEastWest = false;
     const reverseEWToggle = document.getElementById('reverseEWToggle');
-    reverseEWToggle.addEventListener('change', () => { reverseEastWest = reverseEWToggle.checked; saveSettings(); });
+    reverseEWToggle.addEventListener('change', () => { reverseEastWest = reverseEWToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
     // ★★★ 設定読み込みとUI同期 ★★★
     loadSettings(); // 保存された設定を読み込み
@@ -455,18 +515,21 @@ function initApp() {
       rotationZVal.textContent = rotationZSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
       saveSettings();
+      requestRender(); // ★ ADDED (Phase 1): Request render on user input
     });
     rotationYSlider.addEventListener('input', () => {
       rotationY = rotationYSlider.value * Math.PI / 180;
       rotationYVal.textContent = rotationYSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
       saveSettings();
+      requestRender(); // ★ ADDED (Phase 1): Request render on user input
     });
     rotationEWSlider.addEventListener('input', () => {
       rotationEW = rotationEWSlider.value * Math.PI / 180;
       rotationEWVal.textContent = rotationEWSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
       saveSettings();
+      requestRender(); // ★ ADDED (Phase 1): Request render on user input
     });
 
     // ★★★ マウスドラッグによる回転操作 ★★★
@@ -492,6 +555,7 @@ function initApp() {
         rotationZVal.textContent = rotationZSlider.value + "°";
         rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
         rotationYVal.textContent = rotationYSlider.value + "°";
+        requestRender(); // ★ ADDED (Phase 1 fix): Request render on mouse drag
       }
     });
     canvas.addEventListener('mouseup', () => { 
@@ -729,10 +793,10 @@ function initApp() {
       activeButton.classList.add('active');
     }
 
-    playButton.addEventListener('click', () => { isPlaying = true; playbackSpeed = 1; setActiveButton(playButton); });
-    pauseButton.addEventListener('click', () => { isPlaying = false; setActiveButton(pauseButton); });
-    fastForwardButton.addEventListener('click', () => { playbackSpeed = 2; isPlaying = true; setActiveButton(fastForwardButton); });
-    reverseButton.addEventListener('click', () => { playbackSpeed = -1; isPlaying = true; setActiveButton(reverseButton); });
+    playButton.addEventListener('click', () => { isPlaying = true; playbackSpeed = 1; setActiveButton(playButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on play
+    pauseButton.addEventListener('click', () => { isPlaying = false; setActiveButton(pauseButton); }); // ★ MODIFIED (Phase 1): Pause stops animation loop
+    fastForwardButton.addEventListener('click', () => { playbackSpeed = 2; isPlaying = true; setActiveButton(fastForwardButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on fast forward
+    reverseButton.addEventListener('click', () => { playbackSpeed = -1; isPlaying = true; setActiveButton(reverseButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on reverse
 
     let sunRA = 0;  
     let sunDec = 0; 
@@ -764,6 +828,54 @@ function initApp() {
         p.RA = equ.ra;   
         p.Dec = equ.dec; 
       }
+
+      // ========================================
+      // ★ ADDED: Compute ecliptic longitudes and latitudes for horoscope chart
+      // ========================================
+      if (!window.planetEclipticLongitudes) {
+        window.planetEclipticLongitudes = {};
+      }
+      // ★ ADDED (Phase 1): Ecliptic latitudes
+      if (!window.planetEclipticLatitudes) {
+        window.planetEclipticLatitudes = {};
+      }
+
+      // Sun
+      const vecSun = Astronomy.GeoVector(Astronomy.Body.Sun, time, false);
+      const eclSun = Astronomy.Ecliptic(vecSun);
+      window.planetEclipticLongitudes.sun = eclSun.elon;
+      window.planetEclipticLatitudes.sun = eclSun.elat; // ★ ADDED (Phase 1)
+
+      // Moon
+      const vecMoon = Astronomy.GeoVector(Astronomy.Body.Moon, time, false);
+      const eclMoon = Astronomy.Ecliptic(vecMoon);
+      window.planetEclipticLongitudes.moon = eclMoon.elon;
+      window.planetEclipticLatitudes.moon = eclMoon.elat; // ★ ADDED (Phase 1)
+
+      // Planets
+      const planetBodies = [
+        { key: 'mercury', body: Astronomy.Body.Mercury },
+        { key: 'venus',   body: Astronomy.Body.Venus },
+        { key: 'mars',    body: Astronomy.Body.Mars },
+        { key: 'jupiter', body: Astronomy.Body.Jupiter },
+        { key: 'saturn',  body: Astronomy.Body.Saturn },
+        { key: 'uranus',  body: Astronomy.Body.Uranus },
+        { key: 'neptune', body: Astronomy.Body.Neptune },
+        { key: 'pluto',   body: Astronomy.Body.Pluto }
+      ];
+
+      for (let planet of planetBodies) {
+        const vec = Astronomy.GeoVector(planet.body, time, false);
+        const ecl = Astronomy.Ecliptic(vec);
+        window.planetEclipticLongitudes[planet.key] = ecl.elon;
+        window.planetEclipticLatitudes[planet.key] = ecl.elat; // ★ ADDED (Phase 1)
+      }
+
+      console.log('[sphere10.js] Ecliptic longitudes computed:', window.planetEclipticLongitudes);
+      console.log('[sphere10.js] Ecliptic latitudes computed:', window.planetEclipticLatitudes); // ★ ADDED (Phase 1)
+      // ========================================
+      // ★ END ADDED
+      // ========================================
     }
 
     function toHorizontal(ra, dec, lst) {
@@ -998,7 +1110,7 @@ function initApp() {
     function drawHorizon() {
       if (!horizonVisible) return;
       ctx.strokeStyle = "green";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.setLineDash([]);
       ctx.beginPath();
       let started = false;
@@ -1032,9 +1144,9 @@ function initApp() {
       if (!showAltGrid) return;
 
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([]);
 
       const currentTime = window.currentFrameTime || Date.now();
       const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
@@ -1116,11 +1228,11 @@ function initApp() {
           const ra = angle; 
           return { ra, dec };
         },
-        "green",
-        1,
-        true,
+        "#003cb3",
+        2,
+        false,
         360
-      );
+      ); // false＝実線
     }
 
     function drawEquator() {
@@ -1134,7 +1246,7 @@ function initApp() {
         const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
         const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
         return { ra, dec };
-      }, "orange", 1, false);
+      }, "orange", 2, false);
     }
 
     function drawEclipticBand() {
@@ -1237,9 +1349,9 @@ function initApp() {
 
     function drawRA12Lines() {
       if (!ra12LinesVisible) return; 
-      ctx.strokeStyle = "blue";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 3]);
+      ctx.strokeStyle = 'rgba(50, 50, 255,1.0)';
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([]);
       
       // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
       const currentTime = window.currentFrameTime || Date.now();
@@ -1278,9 +1390,9 @@ function initApp() {
       if (!declinationLinesVisible) return;
       
       // 赤道よりも20%暗い赤色を使用
-      ctx.strokeStyle = "#a32929";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 3]); // 点線
+     ctx.strokeStyle =  'rgba(255, 0, 0, 0.5)'; //"#611717",#a32929
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([]); // 点線
       
       // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
       const currentTime = window.currentFrameTime || Date.now();
@@ -1408,8 +1520,16 @@ function initApp() {
     let lastRotationEW = 0;
     let staticElementsCache = null;
     
-    function animate() {
-      requestAnimationFrame(animate);
+    // ★ ADDED (Phase 1): Request render function for dirty rendering
+    function requestRender() {
+      if (rafId === null) {
+        rafId = requestAnimationFrame(renderFrame);
+      }
+    }
+    
+    // ★ MODIFIED (Phase 1): Renamed from animate() to renderFrame()
+    function renderFrame() {
+      rafId = null;
       
       // ★★★ 長時間動作最適化: フレーム共通値の事前計算 ★★★
       const frameTime = Date.now(); // 1回だけ取得
@@ -1417,8 +1537,18 @@ function initApp() {
       if (isPlaying) {
         angle += 0.002 * playbackSpeed;
         currentDate.setSeconds(currentDate.getSeconds() + playbackSpeed);
-        updateAllPositions();
+        
+        // ★ MODIFIED (Phase 1): Throttle ephemeris calculations
+        const now = performance.now();
+        if (now - lastEphemerisUpdate > EPHEMERIS_INTERVAL) {
+          updateAllPositions();
+          lastEphemerisUpdate = now;
+        }
+        
         window.lastRotationTime = frameTime; // 自動回転の検出
+        
+        // ★ ADDED (Phase 1): Continue animation loop
+        requestRender();
       }
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1460,10 +1590,26 @@ function initApp() {
       drawPlanets();
       
       // ★★★ デバッグ情報更新 ★★★
-      updateDebugInfo();
+      // ★ MODIFIED (Phase 1): Store debug values instead of updating DOM directly
+      const lst = (angle * 180 / Math.PI / 15) % 24;
+      debugValues.lst = lst.toFixed(2);
+      debugValues.date = currentDate.toLocaleString();
+      // Other debug values...
     }
 
-    initStars().then(() => { animate(); });
+    // ★ ADDED (Phase 1): Throttled DOM update for debug info
+    setInterval(() => {
+      if (debugValues.lst !== undefined) {
+        const lstDisplay = document.getElementById('lstDisplay');
+        if (lstDisplay) lstDisplay.textContent = debugValues.lst;
+      }
+      if (debugValues.date !== undefined) {
+        const dateDisplay = document.getElementById('dateDisplay');
+        if (dateDisplay) dateDisplay.textContent = debugValues.date;
+      }
+    }, 250);
+    
+    initStars().then(() => { requestRender(); });
   }
   
   // DOMContentLoaded後にinitApp実行
