@@ -795,6 +795,9 @@ function initApp() {
     fastForwardButton.addEventListener('click', () => { playbackSpeed = 2; isPlaying = true; setActiveButton(fastForwardButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on fast forward
     reverseButton.addEventListener('click', () => { playbackSpeed = -1; isPlaying = true; setActiveButton(reverseButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on reverse
 
+    // ★★★ FIX: リロード時にSTOPボタンを選択状態にする ★★★
+    setActiveButton(pauseButton);
+
     let sunRA = 0;  
     let sunDec = 0; 
     let moonRA = 0; 

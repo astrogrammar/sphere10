@@ -338,5 +338,11 @@
 
 
   // DOM 準備後に初期化
-  window.addEventListener('DOMContentLoaded', setupToggle);
+  // ★ FIX: DOMContentLoadedが既に発火している場合に対応
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', setupToggle);
+  } else {
+    // DOMは既に準備完了
+    setupToggle();
+  }
 })();
