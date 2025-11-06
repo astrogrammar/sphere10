@@ -1,8 +1,6 @@
 // ────────────────────────────────────────────────────────────────
-// 2022-11-04
-// Step 5: Horoscope Layout Refactor　
-// サインを外周、惑星を内周に分離。♈︎を9時位置固定。
-// 背景は円形・半透明。トグルボタン #toggleChartBtn で表示/非表示。
+// 2022-11-06
+// 
 // ────────────────────────────────────────────────────────────────
 (() => {
   'use strict';
@@ -14,7 +12,7 @@
   // 色設定（CSS変数と連動）
   const SIGN_COLOR = '#888888';
   const PLANET_COLOR = '#FFFFFF';
-  const BACKGROUND_RGBA = 'rgba(0,0,0,0.6)';
+  const BACKGROUND_RGBA = 'rgba(0,0,0,0.8)';
 
   // 10天体（表示順は任意、記号は度数非表示）
   const PLANETS = [
@@ -131,7 +129,7 @@
 
     // Step 4 要件：半径設定
     const SIGN_RING_R   = 0.95 * R;  // 外周（サインリング）
-    const PLANET_RING_R = 0.70 * R;  // 内周（惑星リング）
+    const PLANET_RING_R = 0.65 * R;  // 内周（惑星リング）
 
     ctx.save();
 
@@ -150,7 +148,7 @@
 
     // 惑星リング
     ctx.lineWidth = 1.0;
-    ctx.strokeStyle = PLANET_COLOR;
+    ctx.strokeStyle = "orange";
     ctx.beginPath();
     ctx.arc(cx, cy, PLANET_RING_R, 0, Math.PI * 2);
     ctx.stroke();
@@ -175,6 +173,7 @@
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
+      ctx.strokeStyle =  'rgba(255, 255, 255, 0.5)';
       ctx.stroke();
 
       // サイン記号（各ハウスの中央）
@@ -259,7 +258,7 @@
     btn.id = TOGGLE_ID;
     btn.type = 'button';
     btn.className = 'chart-toggle';
-    btn.textContent = '♈︎';
+    btn.textContent = '☿';
     btn.setAttribute('title', 'Horoscope (Ctrl+⌘+H)');
     btn.setAttribute('aria-label', 'Toggle horoscope overlay');
     document.body.appendChild(btn);
