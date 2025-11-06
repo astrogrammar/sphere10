@@ -38,13 +38,13 @@
   position: fixed;
   right: 20px;
   bottom: 20px;
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  font-size: 24px;
-  line-height: 48px;
+  font-size: 18px;
+  line-height: 32px;
   text-align: center;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
@@ -65,7 +65,7 @@
 }
 
 .chart-toggle[aria-pressed="true"] {
-  background: rgba(255, 94, 0, 0.75);
+  background: rgba(59, 130, 246, 0.75);
 }
 
 @media (max-width: 480px) {
