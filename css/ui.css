@@ -480,3 +480,97 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.15);
   }
 }
+
+/* ========================================
+   日付送りコントロール
+   ======================================== */
+
+/* 日付送りボタンコンテナ */
+.date-controls {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+/* 日付送りボタン */
+.date-control-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #4a9eff;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* ホバー時 */
+.date-control-btn:hover {
+  background: rgba(74, 158, 255, 0.2);
+  border-color: #5aa9ff;
+  transform: scale(1.05);
+}
+
+/* アクティブ時（選択状態） */
+.date-control-btn.active {
+  background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
+  border-color: #4a9eff;
+  box-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+}
+
+/* 押下時 */
+.date-control-btn:active {
+  transform: scale(0.95);
+}
+
+/* Todayボタン */
+.today-btn {
+  display: block;
+  margin: 12px auto;
+  padding: 6px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #4a9eff;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+/* Todayボタンホバー時 */
+.today-btn:hover {
+  background: rgba(74, 158, 255, 0.2);
+  border-color: #5aa9ff;
+  transform: scale(1.05);
+}
+
+/* Todayボタン押下時 */
+.today-btn:active {
+  transform: scale(0.95);
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .date-controls {
+    gap: 4px;
+  }
+  
+  .date-control-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .today-btn {
+    font-size: 12px;
+    padding: 4px 12px;
+  }
+}
