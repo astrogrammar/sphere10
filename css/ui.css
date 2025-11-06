@@ -3,13 +3,11 @@
    洗練されたコントロールパネル用CSS
    ======================================== */
 
-/* セクション折りたたみ機能のスタイル - オリジナルデザイン重視版 */
 .section {
   margin-bottom: 0;
 }
 
 .section-header {
-  /* オリジナルのh3スタイルをベースに最小限の変更 */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -73,12 +71,12 @@
   transform: rotate(-90deg);
 }
 
-/* モダンなコントロールパネルの基本スタイル */
+/* コントロールパネル基本スタイル */
 .controls {
   position: absolute;
   top: 20px;
   left: 20px;
-  background: linear-gradient(135deg, rgba(40, 44, 52, 0.95), rgba(30, 34, 42, 0.95));
+  background: linear-gradient(135deg, rgba(40, 44, 52, 0.8), rgba(30, 34, 42, 0.8));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding: 0;
@@ -495,13 +493,13 @@
 
 /* 日付送りボタン */
 .date-control-btn {
-  width: 32px;
+  width: 24px;
   height: 32px;
   background: rgba(0, 0, 0, 0.6);
   border: 2px solid #4a9eff;
   color: white;
-  font-size: 14px;
-  font-weight: bold;
+  font-size: 10px;
+  font-weight: normal;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.2s ease;
@@ -564,9 +562,9 @@
   }
   
   .date-control-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
   }
   
   .today-btn {
