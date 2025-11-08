@@ -1294,6 +1294,7 @@ function initApp() {
         // 奥行き暗化あり: 1回のループで手前/奥を切り替えながら描画
         let currentAlpha = null;
         let started = false;
+        let lastPoint = null; // ★ ADDED: 前の点を記憶
         
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
@@ -1309,24 +1310,43 @@ function initApp() {
             if (currentAlpha !== null && currentAlpha !== alpha) {
               if (started) {
                 ctx.stroke();
-                started = false;
+                // ★ MODIFIED: 前の点から新しいパスを開始して連続性を保つ
+                ctx.globalAlpha = alpha;
+                currentAlpha = alpha;
+                ctx.beginPath();
+                if (lastPoint) {
+                  ctx.moveTo(lastPoint.sx, lastPoint.sy);
+                  ctx.lineTo(p.sx, p.sy);
+                } else {
+                  ctx.moveTo(p.sx, p.sy);
+                }
+                started = true;
+                lastPoint = p;
+              } else {
+                ctx.globalAlpha = alpha;
+                currentAlpha = alpha;
+                ctx.beginPath();
+                ctx.moveTo(p.sx, p.sy);
+                started = true;
+                lastPoint = p;
               }
-            }
-            
-            if (!started || currentAlpha !== alpha) {
+            } else if (!started) {
               ctx.globalAlpha = alpha;
               currentAlpha = alpha;
               ctx.beginPath();
               ctx.moveTo(p.sx, p.sy);
               started = true;
+              lastPoint = p;
             } else {
               ctx.lineTo(p.sx, p.sy);
+              lastPoint = p;
             }
           } else {
             if (started) {
               ctx.stroke();
               started = false;
               currentAlpha = null;
+              lastPoint = null;
             }
           }
         }
