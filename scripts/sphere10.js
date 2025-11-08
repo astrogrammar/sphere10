@@ -1295,6 +1295,8 @@ function initApp() {
         let currentAlpha = null;
         let started = false;
         let lastPoint = null; // ★ ADDED: 前の点を記憶
+        let alphaSwitchCount = 0; // ★ DEBUG
+        const debugPoints = []; // ★ DEBUG: 切り替わった点を記録
         
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
@@ -1308,6 +1310,8 @@ function initApp() {
             
             // α値が変わったら、現在のパスを終了して新しいパスを開始
             if (currentAlpha !== null && currentAlpha !== alpha) {
+              alphaSwitchCount++; // ★ DEBUG
+              debugPoints.push({ i, x, y, z, alpha, isBackSide: p.isBackSide }); // ★ DEBUG
               if (started) {
                 ctx.stroke();
                 // ★ MODIFIED: 前の点から新しいパスを開始して連続性を保つ
@@ -1354,6 +1358,14 @@ function initApp() {
         
         if (started) { ctx.stroke(); }
         ctx.globalAlpha = 1.0; // リセット
+        
+        // ★ DEBUG: α切り替え情報を出力
+        if (alphaSwitchCount > 0) {
+          console.log(`[drawGreatCircle] color=${color}, steps=${steps}, alphaSwitchCount=${alphaSwitchCount}`);
+          if (alphaSwitchCount > 10) {
+            console.log(`  First 5 switches:`, debugPoints.slice(0, 5));
+          }
+        }
       }
     }
 
