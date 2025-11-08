@@ -164,6 +164,7 @@ function initApp() {
           declinationLinesVisible: declinationLinesVisible,
           starsVisible: starsVisible,
           showBackSide: showBackSide,
+          applyDepthShading: applyDepthShading,
           planetLabelsVisible: planetLabelsVisible,
           reverseEastWest: reverseEastWest,
           directionVisible: directionVisible,
@@ -199,6 +200,7 @@ function initApp() {
           declinationLinesVisible = settings.declinationLinesVisible ?? true;
           starsVisible = settings.starsVisible ?? true;
           showBackSide = settings.showBackSide ?? false;
+          applyDepthShading = settings.applyDepthShading ?? false;
           planetLabelsVisible = settings.planetLabelsVisible ?? false;
           reverseEastWest = settings.reverseEastWest ?? false;
           directionVisible = settings.directionVisible ?? true;
@@ -362,10 +364,16 @@ function initApp() {
     // ★★★ 恒星表示・裏側描画のフラグ ★★★
     let starsVisible = true;
     let showBackSide = false;
+    let applyDepthShading = false; // ★ ADDED: 奥行き暗化モード（裏側描画と連動）
     const starToggle = document.getElementById('starToggle');
     starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     const backToggle = document.getElementById('backToggle');
-    backToggle.addEventListener('change', () => { showBackSide = backToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    backToggle.addEventListener('change', () => { 
+      showBackSide = backToggle.checked; 
+      applyDepthShading = backToggle.checked; // ★ ADDED: 裏側描画と奥行き暗化を連動
+      saveSettings(); 
+      requestRender(); 
+    });
 
     // ★★★ 惑星ラベルの表示フラグ ★★★
     let planetLabelsVisible = false;
@@ -930,13 +938,15 @@ function initApp() {
     }
 
     // 裏側描画フラグを考慮
+    // ★ MODIFIED: isBackSideフラグを返すように変更（奥行き暗化対応）
     function project(x, y, z) {
-      if (!showBackSide && x < 0) return null;
+      const isBackSide = x < 0; // X軸が奥行き（負=奥側）
+      if (!showBackSide && isBackSide) return null;
       // 東西反転トグルがオンの場合、y の符号を反転
       const effectiveY = reverseEastWest ? -y : y;
       const sx = centerX + scale * effectiveY;
       const sy = centerY - scale * z;
-      return { sx, sy };
+      return { sx, sy, isBackSide };
     }
 
     const magToSize = [
@@ -1008,6 +1018,7 @@ function initApp() {
       const drawStart = debugMode ? performance.now() : 0; 
       
       // 星を色とサイズでグループ化してバッチ描画
+      // ★ MODIFIED: 奥行き暗化対応（αもグループ化のキーに含める）
       const starGroups = new Map();
       
       for (const star of starsData) {
@@ -1020,10 +1031,12 @@ function initApp() {
         if (p) {
           const size = getStarSize(star.Vmag);
           const color = getStarColor(star.Vmag);
-          const key = `${color}_${size}`;
+          // ★ ADDED: 奥行き暗化モード時はαを計算
+          const alpha = (applyDepthShading && p.isBackSide) ? 0.4 : 1.0;
+          const key = `${color}_${size}_${alpha}`;
           
           if (!starGroups.has(key)) {
-            starGroups.set(key, { color, size, points: [] });
+            starGroups.set(key, { color, size, alpha, points: [] });
           }
           starGroups.get(key).points.push({ x: p.sx, y: p.sy });
         }
@@ -1031,6 +1044,7 @@ function initApp() {
       
       // グループ毎にまとめて描画（大幅な最適化）
       for (const [key, group] of starGroups) {
+        ctx.globalAlpha = group.alpha; // ★ ADDED: グループ単位でα設定
         ctx.fillStyle = group.color;
         ctx.beginPath();
         for (const point of group.points) {
@@ -1242,33 +1256,106 @@ function initApp() {
 
     const epsilon = 23.439281 * Math.PI / 180;
     
+    // ★ MODIFIED: 奥行き暗化対応（手前と奥で線を分割）
     function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineWidth;
-      ctx.setLineDash(dashed ? [5, 5] : []);
-      let started = false;
-      for (let i = 0; i <= steps; i++) {
-        const t = i * (2 * Math.PI / steps);
-        const { ra, dec } = raDecFunc(t);
-        let { x, y, z } = toHorizontal(ra, dec, angle);
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const p = project(x, y, z);
-        if (p) {
-          if (!started) {
-            ctx.beginPath();
-            ctx.moveTo(p.sx, p.sy);
-            started = true;
+      if (!applyDepthShading) {
+        // 奥行き暗化なし: 従来の描画
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.setLineDash(dashed ? [5, 5] : []);
+        let started = false;
+        for (let i = 0; i <= steps; i++) {
+          const t = i * (2 * Math.PI / steps);
+          const { ra, dec } = raDecFunc(t);
+          let { x, y, z } = toHorizontal(ra, dec, angle);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            if (!started) {
+              ctx.beginPath();
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+            } else {
+              ctx.lineTo(p.sx, p.sy);
+            }
           } else {
-            ctx.lineTo(p.sx, p.sy);
-          }
-        } else {
-          if (started) {
-            ctx.stroke();
-            started = false;
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
           }
         }
+        if (started) { ctx.stroke(); }
+      } else {
+        // 奥行き暗化あり: 手前と奥で分割描画
+        ctx.lineWidth = lineWidth;
+        ctx.setLineDash(dashed ? [5, 5] : []);
+        
+        // 全ポイントを収集
+        const points = [];
+        for (let i = 0; i <= steps; i++) {
+          const t = i * (2 * Math.PI / steps);
+          const { ra, dec } = raDecFunc(t);
+          let { x, y, z } = toHorizontal(ra, dec, angle);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            points.push({ sx: p.sx, sy: p.sy, isBackSide: p.isBackSide });
+          } else {
+            points.push(null);
+          }
+        }
+        
+        // 手前の線を描画（α=1.0）
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = color;
+        let started = false;
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          if (p && !p.isBackSide) {
+            if (!started || (i > 0 && points[i-1] && points[i-1].isBackSide)) {
+              if (started) ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+            } else {
+              ctx.lineTo(p.sx, p.sy);
+            }
+          } else {
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
+          }
+        }
+        if (started) ctx.stroke();
+        
+        // 奥の線を描画（α=0.4）
+        ctx.globalAlpha = 0.4;
+        ctx.strokeStyle = color;
+        started = false;
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          if (p && p.isBackSide) {
+            if (!started || (i > 0 && points[i-1] && !points[i-1].isBackSide)) {
+              if (started) ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+            } else {
+              ctx.lineTo(p.sx, p.sy);
+            }
+          } else {
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
+          }
+        }
+        if (started) ctx.stroke();
+        
+        ctx.globalAlpha = 1.0; // リセット
       }
-      if (started) { ctx.stroke(); }
     }
 
     function drawMeridian() {
