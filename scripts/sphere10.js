@@ -1430,78 +1430,140 @@ function initApp() {
       }, CONSTANTS.COLORS.ECLIPTIC, CONSTANTS.GREAT_CIRCLE_LINE_WIDTH, false);
     }
 
-    function drawEclipticBand() {
-      if (!eclipticBandVisible) return; 
+    // ★★★ Safari最適化: Path2Dキャッシュ ★★★
+    let eclipticBandPaths = { upper: null, lower: null };
+    let lastEclipticRotation = { z: null, y: null, ew: null };
+    
+    function generateEclipticBandPath(betaDeg, steps) {
+      const beta = betaDeg * Math.PI / 180;
+      const path = new Path2D();
+      let started = false;
       
-      // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
+      for (let i = 0; i <= steps; i++) {
+        const lambda = i * (2 * Math.PI / steps);
+        const dec = Math.asin(Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambda));
+        const ra = Math.atan2(
+          Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambda) - Math.sin(beta) * Math.sin(epsilon),
+          Math.cos(beta) * Math.cos(lambda)
+        );
+        let { x, y, z } = toHorizontal(ra, dec, angle);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        
+        if (p) {
+          if (!started) {
+            path.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            path.lineTo(p.sx, p.sy);
+          }
+        } else {
+          if (started) {
+            started = false;
+          }
+        }
+      }
+      
+      return path;
+    }
+    
+    function drawEclipticBand() {
+      if (!eclipticBandVisible) return;
+      
+      // 回転状態に応じて描画品質を動的調整
       const currentTime = window.currentFrameTime || Date.now();
       const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
       const steps = isRotating ? 90 : 180; // 360 → 90-180 (75-50%削減)
       
-      function drawLineBeta(betaDeg) {
-        const beta = betaDeg * Math.PI / 180;
-        drawGreatCircle((lambda) => {
-          const dec = Math.asin(Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambda));
-          const ra = Math.atan2(
-            Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambda) - Math.sin(beta) * Math.sin(epsilon),
-            Math.cos(beta) * Math.cos(lambda)
-          );
-          return { ra, dec };
-        }, "orange", 1, false, steps);
+      // 回転が変化したかチェック
+      const rotationChanged = (
+        lastEclipticRotation.z !== rotationZ ||
+        lastEclipticRotation.y !== rotationY ||
+        lastEclipticRotation.ew !== rotationEW
+      );
+      
+      // 回転が変化した場合のみPath2Dを再生成
+      if (rotationChanged || !eclipticBandPaths.upper) {
+        eclipticBandPaths.upper = generateEclipticBandPath(8, steps);
+        eclipticBandPaths.lower = generateEclipticBandPath(-8, steps);
+        lastEclipticRotation = { z: rotationZ, y: rotationY, ew: rotationEW };
       }
-      drawLineBeta(8);
-      drawLineBeta(-8);
-    }
-
-    function drawZodiacDivisions() {
-      if (!eclipticBandVisible) return; 
+      
+      // キャッシュされたPath2Dを描画
       ctx.strokeStyle = "orange";
       ctx.lineWidth = 1;
       ctx.setLineDash([]);
-      
-      // ★★★ 最適化: 全ての線を一つのパスにまとめる + 動的品質調整 ★★★
-      ctx.beginPath();
-      const divisions = 12;
-      
-      // ★ ADDED: サイデリアル方式対応
-      const offset = isSidereal ? AYANAMSHA : 0;
+      ctx.stroke(eclipticBandPaths.upper);
+      ctx.stroke(eclipticBandPaths.lower);
+    }
+
+    // ★★★ Safari最適化: Path2Dキャッシュ ★★★
+    let zodiacDivisionsPath = null;
+    let lastZodiacRotation = { z: null, y: null, ew: null, sidereal: null };
+    
+    function drawZodiacDivisions() {
+      if (!eclipticBandVisible) return;
       
       // 回転状態に応じて描画品質を動的調整
       const currentTime = window.currentFrameTime || Date.now();
       const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
       const steps = isRotating ? 12 : 20; // 回転中は軽量、静止時は高品質
       
-      for (let i = 0; i < divisions; i++) {
-        const lambdaConst = (i * 30 + offset) * Math.PI / 180;
-        let started = false;
+      // ★ ADDED: サイデリアル方式対応
+      const offset = isSidereal ? AYANAMSHA : 0;
+      
+      // 回転またはサイデリアル設定が変化したかチェック
+      const rotationChanged = (
+        lastZodiacRotation.z !== rotationZ ||
+        lastZodiacRotation.y !== rotationY ||
+        lastZodiacRotation.ew !== rotationEW ||
+        lastZodiacRotation.sidereal !== isSidereal
+      );
+      
+      // 回転が変化した場合のみPath2Dを再生成
+      if (rotationChanged || !zodiacDivisionsPath) {
+        zodiacDivisionsPath = new Path2D();
+        const divisions = 12;
         
-        for (let j = 0; j <= steps; j++) {
-          const beta = -8 * Math.PI / 180 + (16 * Math.PI / 180) * (j / steps);
-          const dec = Math.asin(
-            Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambdaConst)
-          );
-          const ra = Math.atan2(
-            Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambdaConst) - Math.sin(beta) * Math.sin(epsilon),
-            Math.cos(beta) * Math.cos(lambdaConst)
-          );
-          let { x, y, z } = toHorizontal(ra, dec, angle);
-          ({ x, y, z } = applyAllRotations(x, y, z));
-          const p = project(x, y, z);
-          if (p) {
-            if (!started) { 
-              ctx.moveTo(p.sx, p.sy); 
-              started = true; 
-            } else { 
-              ctx.lineTo(p.sx, p.sy); 
+        for (let i = 0; i < divisions; i++) {
+          const lambdaConst = (i * 30 + offset) * Math.PI / 180;
+          let started = false;
+          
+          for (let j = 0; j <= steps; j++) {
+            const beta = -8 * Math.PI / 180 + (16 * Math.PI / 180) * (j / steps);
+            const dec = Math.asin(
+              Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambdaConst)
+            );
+            const ra = Math.atan2(
+              Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambdaConst) - Math.sin(beta) * Math.sin(epsilon),
+              Math.cos(beta) * Math.cos(lambdaConst)
+            );
+            let { x, y, z } = toHorizontal(ra, dec, angle);
+            ({ x, y, z } = applyAllRotations(x, y, z));
+            const p = project(x, y, z);
+            if (p) {
+              if (!started) { 
+                zodiacDivisionsPath.moveTo(p.sx, p.sy); 
+                started = true; 
+              } else { 
+                zodiacDivisionsPath.lineTo(p.sx, p.sy); 
+              }
+            } else {
+              // 線が切れる場合は次のmoveToで新しいサブパスを開始
+              started = false;
             }
-          } else {
-            // 線が切れる場合は次のmoveToで新しいサブパスを開始
-            started = false;
           }
         }
+        
+        // キャッシュを更新
+        lastZodiacRotation = { z: rotationZ, y: rotationY, ew: rotationEW, sidereal: isSidereal };
       }
-      // ★★★ 全ての線を一度に描画 ★★★
-      ctx.stroke();
+      
+      // キャッシュされたPath2Dを描画
+      ctx.strokeStyle = "orange";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+      ctx.stroke(zodiacDivisionsPath);
     }
 
     function drawZodiacSymbols() {
