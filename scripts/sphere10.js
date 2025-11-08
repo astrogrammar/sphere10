@@ -909,11 +909,23 @@ function initApp() {
       const ha = lst - ra;
       const sinAlt = Math.sin(dec) * Math.sin(latRad) + Math.cos(dec) * Math.cos(latRad) * Math.cos(ha);
       const alt = Math.asin(sinAlt);
-      const cosAz = (Math.sin(dec) - Math.sin(latRad) * Math.sin(alt)) / (Math.cos(latRad) * Math.cos(alt));
-      let az = Math.acos(cosAz);
-      if (Math.sin(ha) > 0) az = 2 * Math.PI - az;
-      const x = Math.cos(alt) * Math.sin(az);
-      const y = -Math.cos(alt) * Math.cos(az);
+      
+      // ★ FIXED: 天頂/天底の特別処理（子午線がNaNになる問題を修正）
+      const cosAlt = Math.cos(alt);
+      let az;
+      if (Math.abs(cosAlt) < 1e-10) {
+        // 天頂または天底: 方位角は不定だが、x=0, y=0 とする
+        az = 0;
+      } else {
+        const cosAz = (Math.sin(dec) - Math.sin(latRad) * Math.sin(alt)) / (Math.cos(latRad) * cosAlt);
+        // ★ FIXED: 数値誤差対策
+        const clampedCosAz = Math.max(-1, Math.min(1, cosAz));
+        az = Math.acos(clampedCosAz);
+        if (Math.sin(ha) > 0) az = 2 * Math.PI - az;
+      }
+      
+      const x = cosAlt * Math.sin(az);
+      const y = -cosAlt * Math.cos(az);
       const z = Math.sin(alt);
       return { x, y, z };
     }
