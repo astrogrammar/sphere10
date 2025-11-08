@@ -1054,6 +1054,8 @@ function initApp() {
         ctx.fill();
       }
       
+      ctx.globalAlpha = 1.0; // ★ FIXED: α値をリセット（後続描画への影響を防止）
+      
       // ★★★ デバッグ用描画時間測定 ★★★
       if (debugMode) {
         const drawTime = performance.now() - drawStart;
@@ -1257,12 +1259,14 @@ function initApp() {
     const epsilon = 23.439281 * Math.PI / 180;
     
     // ★ MODIFIED: 奥行き暗化対応（手前と奥で線を分割）
+    // ★ MODIFIED: 奥行き暗化対応（1回のループで描画、パフォーマンス最適化）
     function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360) {
+      ctx.lineWidth = lineWidth;
+      ctx.setLineDash(dashed ? [5, 5] : []);
+      ctx.strokeStyle = color;
+      
       if (!applyDepthShading) {
         // 奥行き暗化なし: 従来の描画
-        ctx.strokeStyle = color;
-        ctx.lineWidth = lineWidth;
-        ctx.setLineDash(dashed ? [5, 5] : []);
         let started = false;
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
@@ -1287,34 +1291,31 @@ function initApp() {
         }
         if (started) { ctx.stroke(); }
       } else {
-        // 奥行き暗化あり: 手前と奥で分割描画
-        ctx.lineWidth = lineWidth;
-        ctx.setLineDash(dashed ? [5, 5] : []);
+        // 奥行き暗化あり: 1回のループで手前/奥を切り替えながら描画
+        let currentAlpha = null;
+        let started = false;
         
-        // 全ポイントを収集
-        const points = [];
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
           const { ra, dec } = raDecFunc(t);
           let { x, y, z } = toHorizontal(ra, dec, angle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
+          
           if (p) {
-            points.push({ sx: p.sx, sy: p.sy, isBackSide: p.isBackSide });
-          } else {
-            points.push(null);
-          }
-        }
-        
-        // 手前の線を描画（α=1.0）
-        ctx.globalAlpha = 1.0;
-        ctx.strokeStyle = color;
-        let started = false;
-        for (let i = 0; i < points.length; i++) {
-          const p = points[i];
-          if (p && !p.isBackSide) {
-            if (!started || (i > 0 && points[i-1] && points[i-1].isBackSide)) {
-              if (started) ctx.stroke();
+            const alpha = p.isBackSide ? 0.4 : 1.0;
+            
+            // α値が変わったら、現在のパスを終了して新しいパスを開始
+            if (currentAlpha !== null && currentAlpha !== alpha) {
+              if (started) {
+                ctx.stroke();
+                started = false;
+              }
+            }
+            
+            if (!started || currentAlpha !== alpha) {
+              ctx.globalAlpha = alpha;
+              currentAlpha = alpha;
               ctx.beginPath();
               ctx.moveTo(p.sx, p.sy);
               started = true;
@@ -1325,35 +1326,12 @@ function initApp() {
             if (started) {
               ctx.stroke();
               started = false;
+              currentAlpha = null;
             }
           }
         }
-        if (started) ctx.stroke();
         
-        // 奥の線を描画（α=0.4）
-        ctx.globalAlpha = 0.4;
-        ctx.strokeStyle = color;
-        started = false;
-        for (let i = 0; i < points.length; i++) {
-          const p = points[i];
-          if (p && p.isBackSide) {
-            if (!started || (i > 0 && points[i-1] && !points[i-1].isBackSide)) {
-              if (started) ctx.stroke();
-              ctx.beginPath();
-              ctx.moveTo(p.sx, p.sy);
-              started = true;
-            } else {
-              ctx.lineTo(p.sx, p.sy);
-            }
-          } else {
-            if (started) {
-              ctx.stroke();
-              started = false;
-            }
-          }
-        }
-        if (started) ctx.stroke();
-        
+        if (started) { ctx.stroke(); }
         ctx.globalAlpha = 1.0; // リセット
       }
     }
