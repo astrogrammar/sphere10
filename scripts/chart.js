@@ -31,6 +31,9 @@
   // サイン記号（♈︎=0, ♉︎=1, ..., ♓︎=11）
   const SIGN_GLYPHS = ['♈︎','♉︎','♊︎','♋︎','♌︎','♍︎','♎︎','♏︎','♐︎','♑︎','♒︎','♓︎'];
 
+  // ★ ADDED: トロピカル/サイデリアル切り替え
+  const AYANAMSHA = 25; // サイデリアル方式のオフセット（度）
+
   // ========= ユーティリティ =========
   const norm360 = deg => ((deg % 360) + 360) % 360;
   const deg2rad = d => d * Math.PI / 180;
@@ -48,6 +51,11 @@
   function getLongitude() {
     // index.html に経度入力が無い前提のため暫定
     return 139.65; // 既定：横浜
+  }
+  function getIsSidereal() {
+    // sphere10.jsのisSidereal変数を参照
+    if (typeof window.isSidereal !== 'undefined') return window.isSidereal;
+    return false; // デフォルトはトロピカル
   }
 
   // ========= 惑星黄経・黄緯キャッシュ =========
@@ -159,10 +167,14 @@
     ctx.textBaseline = 'middle';
     ctx.font = '18px system-ui, "Segoe UI Symbol", "Apple Color Emoji", sans-serif';
 
+    // ★ ADDED: サイデリアル方式対応
+    const isSidereal = getIsSidereal();
+    const offset = isSidereal ? AYANAMSHA : 0;
+    
     for (let i = 0; i < 12; i++) {
       // ♈︎を9時位置（180°）に固定し、時計回りに配置
       // i=0 → 180°（9時）, i=1 → 150°, i=2 → 120°, ...
-      const angleDeg = 180 - i * 30;
+      const angleDeg = 180 - (i * 30 + offset);
       const angleRad = deg2rad(angleDeg);
 
       // 区切り線（外円から中心まで）
@@ -197,7 +209,9 @@
 
       // 惑星の黄経を9時位置基準に変換（♈︎0°=9時=180°）
       // 黄経0°（♈︎0°）→ 180°、黄経90°（♋0°）→ 90°（時計回り）
-      const angleDeg = 180 - lon;
+      // ★ ADDED: サイデリアル方式対応
+      const adjustedLon = isSidereal ? norm360(lon - AYANAMSHA) : lon;
+      const angleDeg = 180 - adjustedLon;
       const angleRad = deg2rad(angleDeg);
 
       // ★ ADDED (Phase 1): Adjust radius based on ecliptic latitude
@@ -262,6 +276,16 @@
     btn.setAttribute('title', 'Horoscope (Ctrl+⌘+H)');
     btn.setAttribute('aria-label', 'Toggle horoscope overlay');
     document.body.appendChild(btn);
+    
+    // ★ ADDED: T/Sトグルボタン（トロピカル/サイデリアル切り替え）
+    const zodiacBtn = document.createElement('button');
+    zodiacBtn.id = 'toggleZodiacSystemBtn';
+    zodiacBtn.type = 'button';
+    zodiacBtn.className = 'chart-toggle zodiac-toggle';
+    zodiacBtn.textContent = window.isSidereal ? 'S' : 'T';
+    zodiacBtn.setAttribute('title', 'Tropical/Sidereal');
+    zodiacBtn.setAttribute('aria-label', 'Toggle zodiac system');
+    document.body.appendChild(zodiacBtn);
 
     const updateStates = () => {
       btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
@@ -307,6 +331,25 @@
     const onTouch = (event) => { void toggleVisibility(event); };
 
     btn.addEventListener('click', onClick, { passive: true });
+
+    // ★ ADDED: T/Sトグルボタンのイベントリスナー
+    zodiacBtn.addEventListener('click', () => {
+      // sphere10.jsのisSidereal変数を切り替え
+      if (typeof window.isSidereal !== 'undefined') {
+        window.isSidereal = !window.isSidereal;
+        zodiacBtn.textContent = window.isSidereal ? 'S' : 'T';
+        
+        // sphere10.jsの再描画をトリガー
+        if (typeof window.requestRender === 'function') {
+          window.requestRender();
+        }
+        
+        // chartCanvasも更新
+        if (visible) {
+          renderOnce(true);
+        }
+      }
+    });
     btn.addEventListener('touchstart', onTouch, { passive: false });
 
     window.addEventListener('keydown', (event) => {

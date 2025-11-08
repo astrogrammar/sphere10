@@ -133,6 +133,19 @@ function initApp() {
     let longitude = 139.65;
     let showAltGrid = true;
     let showZenithNadir = true;
+    
+    // ★★★ トロピカル/サイデリアル切り替え ★★★
+    const AYANAMSHA = 25; // サイデリアル方式のオフセット（度）
+    let isSidereal = false; // デフォルトはトロピカル方式
+    
+    // ★ ADDED: isSiderealをwindowオブジェクトに公開（chart.jsからアクセスするため）
+    Object.defineProperty(window, 'isSidereal', {
+      get: () => isSidereal,
+      set: (value) => {
+        isSidereal = value;
+        saveSettings();
+      }
+    });
 
     // ★★★ 設定値記憶機能 ★★★
     function saveSettings() {
@@ -155,7 +168,8 @@ function initApp() {
           reverseEastWest: reverseEastWest,
           directionVisible: directionVisible,
           showAltGrid: showAltGrid,
-          showZenithNadir: showZenithNadir
+          showZenithNadir: showZenithNadir,
+          isSidereal: isSidereal
         };
         if (typeof store !== 'undefined') {
           store.set('sphere10_settings', JSON.stringify(settings));
@@ -189,6 +203,7 @@ function initApp() {
           reverseEastWest = settings.reverseEastWest ?? false;
           directionVisible = settings.directionVisible ?? true;
           showAltGrid = settings.showAltGrid ?? showAltGrid;
+          isSidereal = settings.isSidereal ?? false;
           const storedZenithNadir = normalizeStoredBoolean(settings.showZenithNadir);
           if (typeof storedZenithNadir === 'boolean') {
             showZenithNadir = storedZenithNadir;
@@ -1318,13 +1333,16 @@ function initApp() {
       ctx.beginPath();
       const divisions = 12;
       
+      // ★ ADDED: サイデリアル方式対応
+      const offset = isSidereal ? AYANAMSHA : 0;
+      
       // 回転状態に応じて描画品質を動的調整
       const currentTime = window.currentFrameTime || Date.now();
       const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
       const steps = isRotating ? 12 : 20; // 回転中は軽量、静止時は高品質
       
       for (let i = 0; i < divisions; i++) {
-        const lambdaConst = i * 30 * Math.PI / 180;
+        const lambdaConst = (i * 30 + offset) * Math.PI / 180;
         let started = false;
         
         for (let j = 0; j <= steps; j++) {
@@ -1371,8 +1389,11 @@ function initApp() {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       
+      // ★ ADDED: サイデリアル方式対応
+      const offset = isSidereal ? AYANAMSHA : 0;
+      
       for (let i = 0; i < 12; i++) {
-        const lambdaDeg = i * 30 + 15;
+        const lambdaDeg = i * 30 + 15 + offset;
         const lambda = lambdaDeg * Math.PI / 180;
         const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
         const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
@@ -1562,6 +1583,9 @@ function initApp() {
         rafId = requestAnimationFrame(renderFrame);
       }
     }
+    
+    // ★ ADDED: requestRenderをwindowオブジェクトに公開（chart.jsからアクセスするため）
+    window.requestRender = requestRender;
     
     // ★ MODIFIED (Phase 1): Renamed from animate() to renderFrame()
     function renderFrame() {
