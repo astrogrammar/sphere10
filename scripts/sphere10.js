@@ -1366,10 +1366,10 @@ function initApp() {
           return { ra, dec };
         },
         "#4097E8",
-        3,
+        2,
         false,
-        360
-      ); // false＝実線
+        180
+      ); // false＝実線, steps=180で半周（子午線は半周で完結）
     }
 
     function drawEquator() {
