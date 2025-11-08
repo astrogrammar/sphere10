@@ -1295,6 +1295,7 @@ function initApp() {
         let currentAlpha = null;
         let started = false;
         let lastPoint = null; // ★ ADDED: 前の点を記憶
+        let alphaSwitchCount = 0; // ★ DEBUG: α切り替え回数
         
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
@@ -1308,6 +1309,7 @@ function initApp() {
             
             // α値が変わったら、現在のパスを終了して新しいパスを開始
             if (currentAlpha !== null && currentAlpha !== alpha) {
+              alphaSwitchCount++; // ★ DEBUG
               if (started) {
                 ctx.stroke();
                 // ★ MODIFIED: 前の点から新しいパスを開始して連続性を保つ
@@ -1354,6 +1356,9 @@ function initApp() {
         
         if (started) { ctx.stroke(); }
         ctx.globalAlpha = 1.0; // リセット
+        if (alphaSwitchCount > 0) {
+          console.log(`[drawGreatCircle] color=${color}, alphaSwitchCount=${alphaSwitchCount}`);
+        }
       }
     }
 
