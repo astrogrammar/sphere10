@@ -1307,8 +1307,9 @@ function initApp() {
     // ★ MODIFIED: 奥行き暗化対応（1回のループで描画、パフォーマンス最適化）
     function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360) {
       ctx.lineWidth = lineWidth;
-      ctx.setLineDash(dashed ? [5, 5] : []);
       ctx.strokeStyle = color;
+      const dashPattern = dashed ? [5, 5] : [];
+      ctx.setLineDash(dashPattern);
       
       if (!applyDepthShading) {
         // 奥行き暗化なし: 従来の描画
@@ -1339,9 +1340,7 @@ function initApp() {
         // 奥行き暗化あり: 1回のループで手前/奥を切り替えながら描画
         let currentAlpha = null;
         let started = false;
-        let lastPoint = null; // ★ ADDED: 前の点を記憶
-        let alphaSwitchCount = 0; // ★ DEBUG
-        const debugPoints = []; // ★ DEBUG: 切り替わった点を記録
+        let lastPoint = null;
         
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
@@ -1351,17 +1350,13 @@ function initApp() {
           const p = project(x, y, z);
           
           if (p) {
-            const alpha = p.isBackSide ? 0.4 : 1.0;
+            const alpha = p.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
             
             // α値が変わったら、現在のパスを終了して新しいパスを開始
             if (currentAlpha !== null && currentAlpha !== alpha) {
-              alphaSwitchCount++; // ★ DEBUG
-              debugPoints.push({ i, x, y, z, alpha, isBackSide: p.isBackSide }); // ★ DEBUG
               if (started) {
                 ctx.stroke();
-                // ★ MODIFIED: 前の点から新しいパスを開始して連続性を保つ
                 ctx.globalAlpha = alpha;
-                ctx.setLineDash(dashed ? [5, 5] : []); // ★ ADDED: setLineDashを明示的にリセット
                 currentAlpha = alpha;
                 ctx.beginPath();
                 if (lastPoint) {
@@ -1403,14 +1398,6 @@ function initApp() {
         
         if (started) { ctx.stroke(); }
         ctx.globalAlpha = 1.0; // リセット
-        
-        // ★ DEBUG: α切り替え情報を出力
-        if (alphaSwitchCount > 0) {
-          console.log(`[drawGreatCircle] color=${color}, steps=${steps}, alphaSwitchCount=${alphaSwitchCount}`);
-          if (alphaSwitchCount > 10) {
-            console.log(`  First 5 switches:`, debugPoints.slice(0, 5));
-          }
-        }
       }
     }
 
