@@ -2,6 +2,39 @@
 // Sphere10 ver.2.0 - 天球シミュレーター
 // 古典占星術向けの3D天球表示アプリケーション
 
+// ========================================
+// 定数定義
+// ========================================
+const CONSTANTS = {
+  // キャンバス・描画設定
+  CANVAS_SCALE_FACTOR: 0.35,
+  ZOOM_DEFAULT: 1.0,
+  ZOOM_MIN: 0.1,
+  ZOOM_MAX: 10,
+  ZOOM_WHEEL_SENSITIVITY: 0.001,
+  
+  // タッチ・マウス操作
+  TOUCH_ROTATION_SENSITIVITY: 0.005,
+  MOUSE_ROTATION_SENSITIVITY: 0.005,
+  
+  // 深度シェーディング
+  DEPTH_ALPHA_FRONT: 1.0,
+  DEPTH_ALPHA_BACK: 0.4,
+  
+  // 座標変換
+  ZENITH_NADIR_THRESHOLD: 1e-10,
+  
+  // グリッド・線の描画
+  GREAT_CIRCLE_LINE_WIDTH: 2,
+  
+  // 色定義
+  COLORS: {
+    MERIDIAN: '#4097E8',
+    EQUATOR: 'red',
+    ECLIPTIC: 'orange'
+  }
+};
+
 // ★★★ 初期化関数 ★★★
 function initApp() {
     // キャンバス要素の取得とサイズ設定
@@ -12,8 +45,8 @@ function initApp() {
 
     const w = canvas.width;
     const h = canvas.height;
-    let zoom = 1.0;
-    let scale = w * 0.35 * zoom;
+    let zoom = CONSTANTS.ZOOM_DEFAULT;
+    let scale = w * CONSTANTS.CANVAS_SCALE_FACTOR * zoom;
     const centerX = w / 2;
     const centerY = h / 2;
 
@@ -47,8 +80,8 @@ function initApp() {
             const dx = touch.clientX - lastMouseX;
             const dy = touch.clientY - lastMouseY;
             
-            rotationZ += dx * 0.005;
-            rotationY += dy * 0.005;
+            rotationZ += dx * CONSTANTS.TOUCH_ROTATION_SENSITIVITY;
+            rotationY += dy * CONSTANTS.TOUCH_ROTATION_SENSITIVITY;
             
             window.lastRotationTime = Date.now();
             
@@ -70,7 +103,7 @@ function initApp() {
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             const currentDistance = Math.hypot(dx, dy);
             zoom = initialZoom * (currentDistance / initialTouchDistance);
-            zoom = Math.min(Math.max(zoom, 0.1), 10);
+            zoom = Math.min(Math.max(zoom, CONSTANTS.ZOOM_MIN), CONSTANTS.ZOOM_MAX);
             scale = w * 0.4 * zoom;
             e.preventDefault();
             requestRender();
@@ -92,9 +125,9 @@ function initApp() {
     // ★★★ マウスホイールによるズーム機能 ★★★
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = -e.deltaY * 0.001;  
+        const delta = -e.deltaY * CONSTANTS.ZOOM_WHEEL_SENSITIVITY;  
         zoom += delta;
-        zoom = Math.min(Math.max(zoom, 0.1), 10);
+        zoom = Math.min(Math.max(zoom, CONSTANTS.ZOOM_MIN), CONSTANTS.ZOOM_MAX);
         scale = w * 0.4 * zoom;
         requestRender(); 
     });
@@ -567,8 +600,8 @@ function initApp() {
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
         // 感度は適宜調整（ここでは 0.005 ラジアン/ピクセル）
-        rotationZ += dx * 0.005;
-        rotationY += dy * 0.005;
+        rotationZ += dx * CONSTANTS.MOUSE_ROTATION_SENSITIVITY;
+        rotationY += dy * CONSTANTS.MOUSE_ROTATION_SENSITIVITY;
         window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
@@ -913,7 +946,7 @@ function initApp() {
       // ★ FIXED: 天頂/天底の特別処理（子午線がNaNになる問題を修正）
       const cosAlt = Math.cos(alt);
       let az;
-      if (Math.abs(cosAlt) < 1e-10) {
+      if (Math.abs(cosAlt) < CONSTANTS.ZENITH_NADIR_THRESHOLD) {
         // 天頂または天底: 方位角は不定だが、x=0, y=0 とする
         az = 0;
       } else {
@@ -1389,8 +1422,8 @@ function initApp() {
           const ra = angle; 
           return { ra, dec };
         },
-        "#4097E8",
-        2,
+        CONSTANTS.COLORS.MERIDIAN,
+        CONSTANTS.GREAT_CIRCLE_LINE_WIDTH,
         false,
         180
       ); // false＝実線, steps=180で半周（子午線は半周で完結）
@@ -1398,7 +1431,7 @@ function initApp() {
 
     function drawEquator() {
       if (!equatorVisible) return; 
-      drawGreatCircle((t) => ({ ra: t, dec: 0 }), "red", 2, false); // false＝実線
+      drawGreatCircle((t) => ({ ra: t, dec: 0 }), CONSTANTS.COLORS.EQUATOR, CONSTANTS.GREAT_CIRCLE_LINE_WIDTH, false); // false＝実線
     }
 
     function drawEcliptic() {
@@ -1407,7 +1440,7 @@ function initApp() {
         const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
         const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
         return { ra, dec };
-      }, "orange", 2, false);
+      }, CONSTANTS.COLORS.ECLIPTIC, CONSTANTS.GREAT_CIRCLE_LINE_WIDTH, false);
     }
 
     function drawEclipticBand() {
