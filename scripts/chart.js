@@ -209,9 +209,8 @@
 
       // 惑星の黄経を9時位置基準に変換（♈︎0°=9時=180°）
       // 黄経0°（♈︎0°）→ 180°、黄経90°（♋0°）→ 90°（時計回り）
-      // ★ ADDED: サイデリアル方式対応
-      const adjustedLon = isSidereal ? norm360(lon - AYANAMSHA) : lon;
-      const angleDeg = 180 - adjustedLon;
+      // ★ MODIFIED: サイデリアル方式ではサイン記号リングのみ回転し、惑星黄経はトロピカルのまま使用
+      const angleDeg = 180 - lon;
       const angleRad = deg2rad(angleDeg);
 
       // ★ ADDED (Phase 1): Adjust radius based on ecliptic latitude
