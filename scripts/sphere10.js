@@ -1312,6 +1312,7 @@ function initApp() {
                 ctx.stroke();
                 // ★ MODIFIED: 前の点から新しいパスを開始して連続性を保つ
                 ctx.globalAlpha = alpha;
+                ctx.setLineDash(dashed ? [5, 5] : []); // ★ ADDED: setLineDashを明示的にリセット
                 currentAlpha = alpha;
                 ctx.beginPath();
                 if (lastPoint) {
