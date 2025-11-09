@@ -37,6 +37,11 @@ const CONSTANTS = {
 
 // ★★★ 初期化関数 ★★★
 function initApp() {
+    // ★★★ 恒星名表示機能の初期化 ★★★
+    if (typeof initStarNames === 'function') {
+        initStarNames();
+    }
+    
     // キャンバス要素の取得とサイズ設定
     const canvas = document.getElementById('sky');
     const ctx = canvas.getContext('2d');
@@ -416,6 +421,11 @@ function initApp() {
     let planetLabelsVisible = false;
     const planetLabelToggle = document.getElementById('planetLabelToggle');
     planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+
+    // ★★★ 恒星名表示フラグ ★★★
+    let starNamesVisible = false;
+    const starNamesToggle = document.getElementById('starNamesToggle');
+    starNamesToggle.addEventListener('change', () => { starNamesVisible = starNamesToggle.checked; saveSettings(); requestRender(); });
 
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
@@ -1791,6 +1801,20 @@ function initApp() {
       drawSun();
       drawMoon();
       drawPlanets();
+      
+      // ★★★ 恒星名の描画（最後に追加） ★★★
+      if (typeof drawStarNames === 'function') {
+        drawStarNames(
+          ctx, 
+          angle, 
+          latitude, 
+          starNamesVisible, 
+          applyDepthShading,
+          toHorizontal,
+          applyAllRotations,
+          project
+        );
+      }
       
       // ★★★ デバッグ情報更新 ★★★
       // ★ MODIFIED (Phase 1): Store debug values instead of updating DOM directly
