@@ -70,9 +70,14 @@ function drawStarNames(ctx, angle, latitude, starNamesVisible, applyDepthShading
     return;
   }
   
-  // 毎フレーム、3D座標を再計算
+  // 每フレーム、3D座標を再計算
   const coords = window.labeledStars.map(star => {
-    let { x, y, z } = toHorizontal(star.ra, star.dec, angle);
+    // 赤経：時間 → ラジアン (24h = 2π rad)
+    const raRad = (star.ra / 24) * 2 * Math.PI;
+    // 赤緯：度 → ラジアン
+    const decRad = (star.dec * Math.PI) / 180;
+    
+    let { x, y, z } = toHorizontal(raRad, decRad, angle);
     ({ x, y, z } = applyAllRotations(x, y, z));
     return { name: star.name, x, y, z };
   });
