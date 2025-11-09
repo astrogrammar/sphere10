@@ -1238,33 +1238,82 @@ function initApp() {
       if (!horizonVisible) return;
       ctx.strokeStyle = "green";
       ctx.lineWidth = 2;
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      let started = false;
+      const dashPattern = [];
+      ctx.setLineDash(dashPattern);
+      
       const steps = 360;
-      for (let i = 0; i <= steps; i++) {
-        const az = i * (2 * Math.PI / steps);
-        const alt = 0;
-        let x = Math.cos(alt) * Math.sin(az);
-        let y = -Math.cos(alt) * Math.cos(az);
-        let z = Math.sin(alt);
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const p = project(x, y, z);
-        if (p) {
-          if (!started) { 
-            ctx.moveTo(p.sx, p.sy); 
-            started = true; 
-          } else { 
-            ctx.lineTo(p.sx, p.sy); 
-          }
-        } else {
-          if (started) {
-            ctx.stroke();
-            started = false;
+      
+      if (!applyDepthShading) {
+        // 奥行き暗化なし：通常描画
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i <= steps; i++) {
+          const az = i * (2 * Math.PI / steps);
+          const alt = 0;
+          let x = Math.cos(alt) * Math.sin(az);
+          let y = -Math.cos(alt) * Math.cos(az);
+          let z = Math.sin(alt);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            if (!started) { 
+              ctx.moveTo(p.sx, p.sy); 
+              started = true; 
+            } else { 
+              ctx.lineTo(p.sx, p.sy); 
+            }
+          } else {
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
           }
         }
+        if (started) { ctx.stroke(); }
+      } else {
+        // 奥行き暗化あり：裏側を暗くする
+        const points = [];
+        for (let i = 0; i <= steps; i++) {
+          const az = i * (2 * Math.PI / steps);
+          const alt = 0;
+          let x = Math.cos(alt) * Math.sin(az);
+          let y = -Math.cos(alt) * Math.cos(az);
+          let z = Math.sin(alt);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            points.push(p);
+          }
+        }
+        
+        if (points.length === 0) return;
+        
+        let currentAlpha = null;
+        ctx.beginPath();
+        ctx.moveTo(points[0].sx, points[0].sy);
+        
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          const alpha = p.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
+          
+          if (currentAlpha !== null && currentAlpha !== alpha) {
+            // alpha値が変わったら、一旦strokeして新しいパスを開始
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(p.sx, p.sy);
+          }
+          
+          if (currentAlpha !== alpha) {
+            ctx.globalAlpha = alpha;
+            currentAlpha = alpha;
+          }
+          
+          ctx.lineTo(p.sx, p.sy);
+        }
+        
+        ctx.stroke();
+        ctx.globalAlpha = 1.0; // リセット
       }
-      if (started) { ctx.stroke(); }
     }
 
     function drawAltitudeGrid() {
