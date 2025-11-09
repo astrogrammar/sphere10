@@ -37,36 +37,36 @@ const CONSTANTS = {
 
 // ★★★ 恒星名表示機能: 恒星データ ★★★
 const LABELED_STARS = [
-  { name: "アルデバラン", ra: "04h35m55.2s", dec: "+16°30'33\"", mag: 0.85 },
-  { name: "リゲル", ra: "05h14m32.3s", dec: "-08°12'06\"", mag: 0.13 },
-  { name: "ベテルギウス", ra: "05h55m10.3s", dec: "+07°24'25\"", mag: 0.50 },
-  { name: "シリウス", ra: "06h45m08.9s", dec: "-16°42'58\"", mag: -1.46 },
-  { name: "プロキオン", ra: "07h39m18.1s", dec: "+05°13'30\"", mag: 0.38 },
-  { name: "レグルス", ra: "10h08m22.3s", dec: "+11°58'02\"", mag: 1.35 },
-  { name: "スピカ", ra: "13h25m11.6s", dec: "-11°09'41\"", mag: 0.98 },
-  { name: "アルクトゥルス", ra: "14h15m39.7s", dec: "+19°10'57\"", mag: -0.04 },
-  { name: "アンタレス", ra: "16h29m24.5s", dec: "-26°25'55\"", mag: 1.09 },
-  { name: "ベガ", ra: "18h36m56.3s", dec: "+38°47'01\"", mag: 0.03 },
-  { name: "アルタイル", ra: "19h50m47.0s", dec: "+08°52'06\"", mag: 0.77 },
-  { name: "デネブ", ra: "20h41m25.9s", dec: "+45°16'49\"", mag: 1.25 },
-  { name: "フォーマルハウト", ra: "22h57m39.0s", dec: "-29°37'20\"", mag: 1.16 },
-  { name: "カペラ", ra: "05h16m41.4s", dec: "+45°59'53\"", mag: 0.08 },
-  { name: "カノープス", ra: "06h23m57.1s", dec: "-52°41'44\"", mag: -0.74 },
-  { name: "アケルナル", ra: "01h37m42.8s", dec: "-57°14'12\"", mag: 0.46 },
-  { name: "ポルックス", ra: "07h45m18.9s", dec: "+28°01'34\"", mag: 1.14 },
-  { name: "アルファルド", ra: "13h47m32.4s", dec: "+49°18'48\"", mag: 2.37 },
-  { name: "アルビレオ", ra: "17h14m38.9s", dec: "+14°23'25\"", mag: 2.77 },
-  { name: "アルタイル", ra: "19h50m47.0s", dec: "+08°52'06\"", mag: 0.77 },
-  { name: "ポラリス", ra: "02h31m49.1s", dec: "+89°15'51\"", mag: 1.98 },
-  { name: "ミラク", ra: "00h09m10.7s", dec: "-45°27'44\"", mag: 2.04 },
-  { name: "アルフェラッツ", ra: "23h04m45.7s", dec: "+15°12'19\"", mag: 2.06 },
-  { name: "アクルックス", ra: "12h54m01.7s", dec: "-63°05'56\"", mag: 0.77 },
-  { name: "ミモザ", ra: "12h47m43.3s", dec: "-59°41'19\"", mag: 1.25 },
-  { name: "アルナイル", ra: "17h33m36.5s", dec: "-37°06'14\"", mag: 1.87 },
-  { name: "アルフェッカ", ra: "12h26m35.9s", dec: "-63°05'57\"", mag: 2.80 },
-  { name: "アルジェバ", ra: "00h08m23.3s", dec: "+29°05'26\"", mag: 2.06 },
-  { name: "アルファルド", ra: "13h47m32.4s", dec: "+49°18'48\"", mag: 2.37 },
-  { name: "アルファルド", ra: "13h47m32.4s", dec: "+49°18'48\"", mag: 2.37 }
+  { name: "Aldebaran", ra: "04h35m55.2s", dec: "+16°30'33\"", mag: 0.85 },
+  { name: "Rigel", ra: "05h14m32.3s", dec: "-08°12'06\"", mag: 0.13 },
+  { name: "Betelgeuse", ra: "05h55m10.3s", dec: "+07°24'25\"", mag: 0.50 },
+  { name: "Sirius", ra: "06h45m08.9s", dec: "-16°42'58\"", mag: -1.46 },
+  { name: "Procyon", ra: "07h39m18.1s", dec: "+05°13'30\"", mag: 0.38 },
+  { name: "Regulus", ra: "10h08m22.3s", dec: "+11°58'02\"", mag: 1.35 },
+  { name: "Spica", ra: "13h25m11.6s", dec: "-11°09'41\"", mag: 0.98 },
+  { name: "Arcturus", ra: "14h15m39.7s", dec: "+19°10'57\"", mag: -0.04 },
+  { name: "Antares", ra: "16h29m24.5s", dec: "-26°25'55\"", mag: 1.09 },
+  { name: "Vega", ra: "18h36m56.3s", dec: "+38°47'01\"", mag: 0.03 },
+  { name: "Altair", ra: "19h50m47.0s", dec: "+08°52'06\"", mag: 0.77 },
+  { name: "Deneb", ra: "20h41m25.9s", dec: "+45°16'49\"", mag: 1.25 },
+  { name: "Fomalhaut", ra: "22h57m39.0s", dec: "-29°37'20\"", mag: 1.16 },
+  { name: "Capella", ra: "05h16m41.4s", dec: "+45°59'53\"", mag: 0.08 },
+  { name: "Canopus", ra: "06h23m57.1s", dec: "-52°41'44\"", mag: -0.74 },
+  { name: "Achernar", ra: "01h37m42.8s", dec: "-57°14'12\"", mag: 0.46 },
+  { name: "Pollux", ra: "07h45m18.9s", dec: "+28°01'34\"", mag: 1.14 },
+  { name: "Alphard", ra: "13h47m32.4s", dec: "+49°18'48\"", mag: 2.37 },
+  { name: "Albireo", ra: "17h14m38.9s", dec: "+14°23'25\"", mag: 2.77 },
+  { name: "Shaula", ra: "17h33m36.5s", dec: "-37°06'14\"", mag: 1.87 },
+  { name: "Polaris", ra: "02h31m49.1s", dec: "+89°15'51\"", mag: 1.98 },
+  { name: "Mirach", ra: "00h09m10.7s", dec: "-45°27'44\"", mag: 2.04 },
+  { name: "Alpheratz", ra: "23h04m45.7s", dec: "+15°12'19\"", mag: 2.06 },
+  { name: "Acrux", ra: "12h54m01.7s", dec: "-63°05'56\"", mag: 0.77 },
+  { name: "Mimosa", ra: "12h47m43.3s", dec: "-59°41'19\"", mag: 1.25 },
+  { name: "Alphecca", ra: "12h26m35.9s", dec: "-63°05'57\"", mag: 2.80 },
+  { name: "Algieba", ra: "00h08m23.3s", dec: "+29°05'26\"", mag: 2.06 },
+  { name: "Hamal", ra: "02h07m10.4s", dec: "+23°27'45\"", mag: 2.00 },
+  { name: "Schedar", ra: "00h40m30.4s", dec: "+56°32'15\"", mag: 2.23 },
+  { name: "Caph", ra: "00h09m10.7s", dec: "+59°08'59\"", mag: 2.27 }
 ];
 
 // ★★★ 恒星名表示機能: RA/Dec解析関数 ★★★
@@ -116,7 +116,7 @@ function initStarLabels() {
 }
 
 /**
- * 完全静止状態を判定
+ * 完全静止状態を判定（回転・拡縮・手動移動すべてを検知）
  * @returns {boolean} 完全静止しているか
  */
 function isCompletelyStill() {
@@ -124,10 +124,16 @@ function isCompletelyStill() {
   if (window.isPlayingGlobal) return false;
   
   const now = Date.now();
-  const timeSinceLastRotation = now - (window.lastRotationTime || 0);
   
-  // 500ms以上静止していれば完全静止
-  return timeSinceLastRotation > 500;
+  // 回転・拡縮・手動移動のいずれかが500ms以内に発生していれば静止していない
+  const timeSinceLastRotation = now - (window.lastRotationTime || 0);
+  const timeSinceLastZoom = now - (window.lastZoomTime || 0);
+  const timeSinceLastManualMove = now - (window.lastManualMoveTime || 0);
+  
+  // すべての操作が500ms以上前であれば完全静止
+  return timeSinceLastRotation > 500 && 
+         timeSinceLastZoom > 500 && 
+         timeSinceLastManualMove > 500;
 }
 
 /**
@@ -204,6 +210,12 @@ function initApp() {
     // ★★★ 恒星データの初期化 ★★★
     const labeledStars = initStarLabels();
     
+    // ★★★ 完全静止検知用グローバル変数の初期化 ★★★
+    window.lastRotationTime = 0;
+    window.lastZoomTime = 0;
+    window.lastManualMoveTime = 0;
+    window.starLabelCache = null;
+    
     // キャンバス要素の取得とサイズ設定
     const canvas = document.getElementById('sky');
     const ctx = canvas.getContext('2d');
@@ -253,6 +265,7 @@ function initApp() {
             rotationY += dy * CONSTANTS.TOUCH_ROTATION_SENSITIVITY;
             
             window.lastRotationTime = Date.now();
+            window.lastManualMoveTime = Date.now(); // ★★★ 手動移動検出用タイムスタンプ ★★★
             
             lastMouseX = touch.clientX;
             lastMouseY = touch.clientY;
@@ -268,6 +281,7 @@ function initApp() {
         
         // 2本指でピンチ（ズーム）
         if (e.touches.length === 2 && initialTouchDistance !== null) {
+            window.lastZoomTime = Date.now(); // ★★★ ズーム検出用タイムスタンプ ★★★
             const dx = e.touches[0].clientX - e.touches[1].clientX;
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             const currentDistance = Math.hypot(dx, dy);
@@ -295,6 +309,7 @@ function initApp() {
     // ★★★ マウスホイールによるズーム機能 ★★★
     canvas.addEventListener('wheel', (e) => {
         window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
+        window.lastZoomTime = Date.now(); // ★★★ ズーム検出用タイムスタンプ ★★★
         e.preventDefault();
         const delta = -e.deltaY * CONSTANTS.ZOOM_WHEEL_SENSITIVITY;  
         zoom += delta;
@@ -798,6 +813,7 @@ function initApp() {
         rotationZ += dx * CONSTANTS.MOUSE_ROTATION_SENSITIVITY;
         rotationY += dy * CONSTANTS.MOUSE_ROTATION_SENSITIVITY;
         window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
+        window.lastManualMoveTime = Date.now(); // ★★★ 手動移動検出用タイムスタンプ ★★★
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
         // スライダー表示の更新
