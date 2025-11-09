@@ -77,3 +77,14 @@
 #chartCanvas {
   display: none;
 }
+
+/* ★ ADDED: T/Sトグルボタン（トロピカル/サイデリアル切り替え） */
+.zodiac-toggle {
+  right: 60px; /* ☿ボタンの左横に配置 */
+}
+
+@media (max-width: 480px) {
+  .zodiac-toggle {
+    right: 56px;
+  }
+}
