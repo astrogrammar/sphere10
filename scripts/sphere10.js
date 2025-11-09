@@ -933,8 +933,9 @@ function initApp() {
         window.planetEclipticLatitudes[planet.key] = ecl.elat; // ★ ADDED (Phase 1)
       }
 
-      console.log('[sphere10.js] Ecliptic longitudes computed:', window.planetEclipticLongitudes);
-      console.log('[sphere10.js] Ecliptic latitudes computed:', window.planetEclipticLatitudes); // ★ ADDED (Phase 1)
+      // ★ DEBUG: 惑星座標の計算結果（高頻度出力のためコメントアウト）
+      // console.log('[sphere10.js] Ecliptic longitudes computed:', window.planetEclipticLongitudes);
+      // console.log('[sphere10.js] Ecliptic latitudes computed:', window.planetEclipticLatitudes);
       // ========================================
       // ★ END ADDED
       // ========================================
@@ -1729,7 +1730,8 @@ function initApp() {
       // ★★★ Safari最適化: 定期的にCanvas contextをリセット ★★★
       if (isSafari && ctx.reset && safariFrameCount % 600 === 0) {
         ctx.reset();
-        console.log('[Safari] Canvas context reset at frame', safariFrameCount);
+        // ★ DEBUG: Safari開発時のみログ出力（本番ではコメントアウト）
+        // console.log('[Safari] Canvas context reset at frame', safariFrameCount);
       }
       
       // ★★★ 長時間動作最適化: フレーム共通値の事前計算 ★★★
