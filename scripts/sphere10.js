@@ -35,8 +35,175 @@ const CONSTANTS = {
   }
 };
 
+// ★★★ 恒星名表示機能: 恒星データ ★★★
+const LABELED_STARS = [
+  { name: "アルデバラン", ra: "04h35m55.2s", dec: "+16°30'33\"", mag: 0.85 },
+  { name: "リゲル", ra: "05h14m32.3s", dec: "-08°12'06\"", mag: 0.13 },
+  { name: "ベテルギウス", ra: "05h55m10.3s", dec: "+07°24'25\"", mag: 0.50 },
+  { name: "シリウス", ra: "06h45m08.9s", dec: "-16°42'58\"", mag: -1.46 },
+  { name: "プロキオン", ra: "07h39m18.1s", dec: "+05°13'30\"", mag: 0.38 },
+  { name: "レグルス", ra: "10h08m22.3s", dec: "+11°58'02\"", mag: 1.35 },
+  { name: "スピカ", ra: "13h25m11.6s", dec: "-11°09'41\"", mag: 0.98 },
+  { name: "アルクトゥルス", ra: "14h15m39.7s", dec: "+19°10'57\"", mag: -0.04 },
+  { name: "アンタレス", ra: "16h29m24.5s", dec: "-26°25'55\"", mag: 1.09 },
+  { name: "ベガ", ra: "18h36m56.3s", dec: "+38°47'01\"", mag: 0.03 },
+  { name: "アルタイル", ra: "19h50m47.0s", dec: "+08°52'06\"", mag: 0.77 },
+  { name: "デネブ", ra: "20h41m25.9s", dec: "+45°16'49\"", mag: 1.25 },
+  { name: "フォーマルハウト", ra: "22h57m39.0s", dec: "-29°37'20\"", mag: 1.16 },
+  { name: "カペラ", ra: "05h16m41.4s", dec: "+45°59'53\"", mag: 0.08 },
+  { name: "カノープス", ra: "06h23m57.1s", dec: "-52°41'44\"", mag: -0.74 },
+  { name: "アケルナル", ra: "01h37m42.8s", dec: "-57°14'12\"", mag: 0.46 },
+  { name: "ポルックス", ra: "07h45m18.9s", dec: "+28°01'34\"", mag: 1.14 },
+  { name: "アルファルド", ra: "13h47m32.4s", dec: "+49°18'48\"", mag: 2.37 },
+  { name: "アルビレオ", ra: "17h14m38.9s", dec: "+14°23'25\"", mag: 2.77 },
+  { name: "アルタイル", ra: "19h50m47.0s", dec: "+08°52'06\"", mag: 0.77 },
+  { name: "ポラリス", ra: "02h31m49.1s", dec: "+89°15'51\"", mag: 1.98 },
+  { name: "ミラク", ra: "00h09m10.7s", dec: "-45°27'44\"", mag: 2.04 },
+  { name: "アルフェラッツ", ra: "23h04m45.7s", dec: "+15°12'19\"", mag: 2.06 },
+  { name: "アクルックス", ra: "12h54m01.7s", dec: "-63°05'56\"", mag: 0.77 },
+  { name: "ミモザ", ra: "12h47m43.3s", dec: "-59°41'19\"", mag: 1.25 },
+  { name: "アルナイル", ra: "17h33m36.5s", dec: "-37°06'14\"", mag: 1.87 },
+  { name: "アルフェッカ", ra: "12h26m35.9s", dec: "-63°05'57\"", mag: 2.80 },
+  { name: "アルジェバ", ra: "00h08m23.3s", dec: "+29°05'26\"", mag: 2.06 },
+  { name: "アルファルド", ra: "13h47m32.4s", dec: "+49°18'48\"", mag: 2.37 },
+  { name: "アルファルド", ra: "13h47m32.4s", dec: "+49°18'48\"", mag: 2.37 }
+];
+
+// ★★★ 恒星名表示機能: RA/Dec解析関数 ★★★
+
+/**
+ * RA文字列（"HHhMMmSS.Ss"）をラジアンに変換
+ * @param {string} hms - RA文字列 (e.g., "04h35m55.2s")
+ * @returns {number} RA in radians
+ */
+function parseHMS(hms) {
+  const match = hms.match(/(\d+)h(\d+)m([\d.]+)s/);
+  if (!match) return 0;
+  const h = parseFloat(match[1]);
+  const m = parseFloat(match[2]);
+  const s = parseFloat(match[3]);
+  const hours = h + m / 60 + s / 3600;
+  return (hours / 24) * 2 * Math.PI;
+}
+
+/**
+ * Dec文字列（"±DD°MM'SS\""）をラジアンに変換
+ * @param {string} dms - Dec文字列 (e.g., "+16°30'33\"")
+ * @returns {number} Dec in radians
+ */
+function parseDMS(dms) {
+  const match = dms.match(/([+-]?)(\d+)°(\d+)'([\d.]+)\"/);
+  if (!match) return 0;
+  const sign = match[1] === '-' ? -1 : 1;
+  const d = parseFloat(match[2]);
+  const m = parseFloat(match[3]);
+  const s = parseFloat(match[4]);
+  const degrees = d + m / 60 + s / 3600;
+  return sign * (degrees * Math.PI / 180);
+}
+
+/**
+ * 恒星データを初期化（RA/Decをラジアンに変換）
+ * @returns {Array} 初期化済み恒星データ
+ */
+function initStarLabels() {
+  return LABELED_STARS.map(star => ({
+    name: star.name,
+    ra: parseHMS(star.ra),
+    dec: parseDMS(star.dec),
+    mag: star.mag
+  }));
+}
+
+/**
+ * 完全静止状態を判定
+ * @returns {boolean} 完全静止しているか
+ */
+function isCompletelyStill() {
+  // PLAY中は静止していない
+  if (window.isPlayingGlobal) return false;
+  
+  const now = Date.now();
+  const timeSinceLastRotation = now - (window.lastRotationTime || 0);
+  
+  // 500ms以上静止していれば完全静止
+  return timeSinceLastRotation > 500;
+}
+
+/**
+ * 恒星名を描画（完全静止時のみ）
+ * @param {CanvasRenderingContext2D} ctx - Canvasコンテキスト
+ * @param {number} angle - 現在のLST角度（ラジアン）
+ * @param {number} latitude - 編度（度）
+ * @param {Array} labeledStars - 初期化済み恒星データ
+ * @param {boolean} starLabelsVisible - 恒星名表示フラグ
+ * @param {boolean} applyDepthShading - 奥行き暗化フラグ
+ * @param {Function} toHorizontal - 座標変換関数
+ * @param {Function} applyAllRotations - 回転適用関数
+ * @param {Function} project - 投影関数
+ */
+function drawStarLabels(ctx, angle, latitude, labeledStars, starLabelsVisible, applyDepthShading, toHorizontal, applyAllRotations, project) {
+  // チェック1: 恒星名表示が無効
+  if (!starLabelsVisible) return;
+  
+  // チェック2: 完全静止していない
+  if (!isCompletelyStill()) return;
+  
+  // キャッシュの初期化または再利用
+  if (!window.starLabelCache) {
+    window.starLabelCache = {
+      coords: null,
+      lastAngle: null,
+      lastLatitude: null
+    };
+  }
+  
+  const cache = window.starLabelCache;
+  
+  // キャッシュの検証：angleまたはlatitudeが変化したら再計算
+  const angleChanged = cache.lastAngle !== angle;
+  const latitudeChanged = cache.lastLatitude !== latitude;
+  
+  if (angleChanged || latitudeChanged || cache.coords === null) {
+    // 3D座標を再計算
+    cache.coords = labeledStars.map(star => {
+      let { x, y, z } = toHorizontal(star.ra, star.dec, angle);
+      ({ x, y, z } = applyAllRotations(x, y, z));
+      return { name: star.name, x, y, z };
+    });
+    cache.lastAngle = angle;
+    cache.lastLatitude = latitude;
+  }
+  
+  // テキストスタイルの設定
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  
+  // 各恒星名を描画
+  cache.coords.forEach(star => {
+    const p = project(star.x, star.y, star.z);
+    if (p) {
+      // 奥行き暗化の適用
+      if (applyDepthShading) {
+        // z > 0 なら手前（明るい）、z < 0 なら奥（暗い）
+        const alpha = star.z > 0 ? 1.0 : 0.4;
+        ctx.fillStyle = `rgba(221, 221, 221, ${alpha})`;
+      } else {
+        ctx.fillStyle = '#dddddd';
+      }
+      
+      // 恒星名を描画（恒星の少し右上に表示）
+      ctx.fillText(star.name, p.sx + 8, p.sy - 8);
+    }
+  });
+}
+
 // ★★★ 初期化関数 ★★★
 function initApp() {
+    // ★★★ 恒星データの初期化 ★★★
+    const labeledStars = initStarLabels();
+    
     // キャンバス要素の取得とサイズ設定
     const canvas = document.getElementById('sky');
     const ctx = canvas.getContext('2d');
@@ -56,6 +223,7 @@ function initApp() {
 
     // タッチイベントリスナー
     canvas.addEventListener('touchstart', (e) => {
+        window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
         // ★ ADDED (Phase 1 fix): 1本指ドラッグで回転
         if (e.touches.length === 1) {
             isDragging = true;
@@ -74,6 +242,7 @@ function initApp() {
         }
     });
     canvas.addEventListener('touchmove', (e) => {
+        window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
         // ★ ADDED (Phase 1 fix): 1本指ドラッグで回転
         if (e.touches.length === 1 && isDragging) {
             const touch = e.touches[0];
@@ -110,6 +279,7 @@ function initApp() {
         }
     });
     canvas.addEventListener('touchend', (e) => {
+        window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
         // ★ ADDED (Phase 1 fix): ドラッグ終了
         if (e.touches.length < 1) {
             isDragging = false;
@@ -124,6 +294,7 @@ function initApp() {
 
     // ★★★ マウスホイールによるズーム機能 ★★★
     canvas.addEventListener('wheel', (e) => {
+        window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
         e.preventDefault();
         const delta = -e.deltaY * CONSTANTS.ZOOM_WHEEL_SENSITIVITY;  
         zoom += delta;
@@ -148,6 +319,7 @@ function initApp() {
     let angle = 0; 
     // ★ MODIFIED (Phase 1): Default to pause for better initial performance
     let isPlaying = false;
+    window.isPlayingGlobal = isPlaying; // ★ ADDED: 恒星名表示機能のためにグローバル化
     let playbackSpeed = 1;
     
     // ★ ADDED (Phase 1): Dirty rendering flags
@@ -403,7 +575,18 @@ function initApp() {
     let showBackSide = false;
     let applyDepthShading = false; // ★ ADDED: 奥行き暗化モード（裏側描画と連動）
     const starToggle = document.getElementById('starToggle');
-    starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    starToggle.addEventListener('change', () => { window.starLabelCache = null; starsVisible = starToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    
+    // ★★★ 恒星名表示のトグル ★★★
+    let starLabelsVisible = false;
+    const starLabelsToggle = document.getElementById('starLabelsToggle');
+    starLabelsToggle.addEventListener('change', () => { 
+      window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
+      starLabelsVisible = starLabelsToggle.checked; 
+      saveSettings(); 
+      requestRender(); 
+    });
+    
     const backToggle = document.getElementById('backToggle');
     backToggle.addEventListener('change', () => { 
       showBackSide = backToggle.checked; 
@@ -415,7 +598,7 @@ function initApp() {
     // ★★★ 惑星ラベルの表示フラグ ★★★
     let planetLabelsVisible = false;
     const planetLabelToggle = document.getElementById('planetLabelToggle');
-    planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    planetLabelToggle.addEventListener('change', () => { window.starLabelCache = null; planetLabelsVisible = planetLabelToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
 
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
@@ -452,13 +635,13 @@ function initApp() {
         requestRender();  // ★ ADDED: Request re-render when toggle changes
       }
     });
-    horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
-    meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
-    equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
-    eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
-    eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
-    ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
-    declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    horizonToggle.addEventListener('change', () => { window.starLabelCache = null; horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    meridianToggle.addEventListener('change', () => { window.starLabelCache = null; meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    equatorToggle.addEventListener('change', () => { window.starLabelCache = null; equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    eclipticToggle.addEventListener('change', () => { window.starLabelCache = null; eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    eclipticBandToggle.addEventListener('change', () => { window.starLabelCache = null; eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    ra12LinesToggle.addEventListener('change', () => { window.starLabelCache = null; ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    declinationLinesToggle.addEventListener('change', () => { window.starLabelCache = null; declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
 
     // ★★★ 方角表示設定 ★★★
     const directionToggle = document.getElementById('directionToggle');
@@ -468,7 +651,7 @@ function initApp() {
     let directionVisible = directionToggle.checked;
     let directionTextSize = parseInt(directionTextSizeSlider.value, 10);
     let directionTextColor = directionTextColorPicker.value;
-    directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    directionToggle.addEventListener('change', () => { window.starLabelCache = null; directionVisible = directionToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
     directionTextSizeSlider.addEventListener('input', () => {
       directionTextSize = parseInt(directionTextSizeSlider.value, 10);
       directionTextSizeVal.textContent = directionTextSizeSlider.value + "px";
@@ -478,7 +661,7 @@ function initApp() {
     // ★★★ 新規追加: 東西反転トグル ★★★
     let reverseEastWest = false;
     const reverseEWToggle = document.getElementById('reverseEWToggle');
-    reverseEWToggle.addEventListener('change', () => { reverseEastWest = reverseEWToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    reverseEWToggle.addEventListener('change', () => { window.starLabelCache = null; reverseEastWest = reverseEWToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED: Cache invalidation
 
     // ★★★ 設定読み込みとUI同期 ★★★
     loadSettings(); // 保存された設定を読み込み
@@ -518,6 +701,7 @@ function initApp() {
     if (directionToggle) directionToggle.checked = directionVisible;
 
     datetimeInput.addEventListener('change', () => {
+      window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
       const userDate = new Date(datetimeInput.value);
       if (!isNaN(userDate)) {
         currentDate = userDate;
@@ -527,6 +711,7 @@ function initApp() {
     });
 
     setLocationButton.addEventListener('click', async () => {
+      window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
       const city = locationInput.value.trim();
       if (city) {
         try {
@@ -554,6 +739,7 @@ function initApp() {
     // ★★★ 緯度調節機能 ★★★
     const latitudeInput = document.getElementById("latitudeInput");
     latitudeInput.addEventListener("change", () => {
+      window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
       let newLat = parseFloat(latitudeInput.value);
       if (isNaN(newLat)) {
         newLat = 35.4; // デフォルト値に戻す
@@ -570,6 +756,7 @@ function initApp() {
     latitudeInput.value = latitude.toFixed(1);
 
     rotationZSlider.addEventListener('input', () => {
+      window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
       rotationZ = rotationZSlider.value * Math.PI / 180;
       rotationZVal.textContent = rotationZSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
@@ -577,6 +764,7 @@ function initApp() {
       requestRender(); // ★ ADDED (Phase 1): Request render on user input
     });
     rotationYSlider.addEventListener('input', () => {
+      window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
       rotationY = rotationYSlider.value * Math.PI / 180;
       rotationYVal.textContent = rotationYSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
@@ -584,6 +772,7 @@ function initApp() {
       requestRender(); // ★ ADDED (Phase 1): Request render on user input
     });
     rotationEWSlider.addEventListener('input', () => {
+      window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
       rotationEW = rotationEWSlider.value * Math.PI / 180;
       rotationEWVal.textContent = rotationEWSlider.value + "°";
       window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
@@ -595,12 +784,14 @@ function initApp() {
     let isDragging = false;
     let lastMouseX, lastMouseY;
     canvas.addEventListener('mousedown', (e) => {
+      window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
       isDragging = true;
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
     });
     canvas.addEventListener('mousemove', (e) => {
       if (isDragging) {
+        window.starLabelCache = null; // ★ ADDED: 恒星名キャッシュを無効化
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
         // 感度は適宜調整（ここでは 0.005 ラジアン/ピクセル）
@@ -852,10 +1043,10 @@ function initApp() {
       activeButton.classList.add('active');
     }
 
-    playButton.addEventListener('click', () => { isPlaying = true; playbackSpeed = 1; setActiveButton(playButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on play
-    pauseButton.addEventListener('click', () => { isPlaying = false; setActiveButton(pauseButton); }); // ★ MODIFIED (Phase 1): Pause stops animation loop
-    fastForwardButton.addEventListener('click', () => { playbackSpeed = 2; isPlaying = true; setActiveButton(fastForwardButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on fast forward
-    reverseButton.addEventListener('click', () => { playbackSpeed = -1; isPlaying = true; setActiveButton(reverseButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on reverse
+    playButton.addEventListener('click', () => { window.starLabelCache = null; isPlaying = true; window.isPlayingGlobal = true; playbackSpeed = 1; setActiveButton(playButton); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    pauseButton.addEventListener('click', () => { window.starLabelCache = null; isPlaying = false; window.isPlayingGlobal = false; setActiveButton(pauseButton); }); // ★ MODIFIED: Cache invalidation
+    fastForwardButton.addEventListener('click', () => { window.starLabelCache = null; playbackSpeed = 2; isPlaying = true; window.isPlayingGlobal = true; setActiveButton(fastForwardButton); requestRender(); }); // ★ MODIFIED: Cache invalidation
+    reverseButton.addEventListener('click', () => { window.starLabelCache = null; playbackSpeed = -1; isPlaying = true; window.isPlayingGlobal = true; setActiveButton(reverseButton); requestRender(); }); // ★ MODIFIED: Cache invalidation
 
     // ★★★ FIX: リロード時にSTOPボタンを選択状態にする ★★★
     setActiveButton(pauseButton);
@@ -1840,6 +2031,9 @@ function initApp() {
       drawSun();
       drawMoon();
       drawPlanets();
+      
+      // ★★★ 恒星名の描画（完全静止時のみ） ★★★
+      drawStarLabels(ctx, angle, latitude, labeledStars, starLabelsVisible, applyDepthShading, toHorizontal, applyAllRotations, project);
       
       // ★★★ デバッグ情報更新 ★★★
       // ★ MODIFIED (Phase 1): Store debug values instead of updating DOM directly
