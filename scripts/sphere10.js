@@ -154,6 +154,10 @@ function initApp() {
     let rafId = null;
     let needsRender = true;
     
+    // ★★★ Safari最適化: Canvas context定期リセット ★★★
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    let safariFrameCount = 0;
+    
     // ★ ADDED (Phase 1): Throttle ephemeris calculations
     let lastEphemerisUpdate = 0;
     const EPHEMERIS_INTERVAL = 250; // ms
@@ -1720,6 +1724,13 @@ function initApp() {
     // ★ MODIFIED (Phase 1): Renamed from animate() to renderFrame()
     function renderFrame() {
       rafId = null;
+      safariFrameCount++;
+      
+      // ★★★ Safari最適化: 定期的にCanvas contextをリセット ★★★
+      if (isSafari && ctx.reset && safariFrameCount % 600 === 0) {
+        ctx.reset();
+        console.log('[Safari] Canvas context reset at frame', safariFrameCount);
+      }
       
       // ★★★ 長時間動作最適化: フレーム共通値の事前計算 ★★★
       const frameTime = Date.now(); // 1回だけ取得
