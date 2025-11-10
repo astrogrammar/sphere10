@@ -898,6 +898,8 @@ function initApp() {
 
     async function updateAllPositions() {
       const time = Astronomy.MakeTime(currentDate);
+      // ★★★ Set Julian Date for lunar orbit calculation
+      window.julianDate = time.ut;
       const observer = new Astronomy.Observer(latitude, longitude, 0);
       const equSun = Astronomy.Equator(Astronomy.Body.Sun, time, observer, true, true);
       sunRA = equSun.ra;
