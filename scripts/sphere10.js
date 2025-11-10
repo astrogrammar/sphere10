@@ -212,7 +212,8 @@ function initApp() {
           directionVisible: directionVisible,
           showAltGrid: showAltGrid,
           showZenithNadir: showZenithNadir,
-          isSidereal: isSidereal
+          isSidereal: isSidereal,
+          lunarOrbitVisible: lunarOrbitVisible
         };
         if (typeof store !== 'undefined') {
           store.set('sphere10_settings', JSON.stringify(settings));
@@ -248,6 +249,7 @@ function initApp() {
           directionVisible = settings.directionVisible ?? true;
           showAltGrid = settings.showAltGrid ?? showAltGrid;
           isSidereal = settings.isSidereal ?? false;
+          lunarOrbitVisible = settings.lunarOrbitVisible ?? false;
           const storedZenithNadir = normalizeStoredBoolean(settings.showZenithNadir);
           if (typeof storedZenithNadir === 'boolean') {
             showZenithNadir = storedZenithNadir;
@@ -427,6 +429,13 @@ function initApp() {
     const starNamesToggle = document.getElementById('starNamesToggle');
     starNamesToggle.addEventListener('change', () => { starNamesVisible = starNamesToggle.checked; saveSettings(); requestRender(); });
 
+    // ★★★ 白道表示フラグ ★★★
+    const lunarOrbitToggle = document.getElementById('lunarOrbitToggle');
+    let lunarOrbitVisible = lunarOrbitToggle ? lunarOrbitToggle.checked : false;
+    if (lunarOrbitToggle) {
+      lunarOrbitToggle.addEventListener('change', () => { lunarOrbitVisible = lunarOrbitToggle.checked; saveSettings(); requestRender(); });
+    }
+
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
     const meridianToggle = document.getElementById('meridianToggle');
@@ -517,6 +526,7 @@ function initApp() {
     if (equatorToggle) equatorToggle.checked = equatorVisible;
     if (eclipticToggle) eclipticToggle.checked = eclipticVisible;
     if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
+    if (lunarOrbitToggle) lunarOrbitToggle.checked = lunarOrbitVisible;
     if (ra12LinesToggle) ra12LinesToggle.checked = ra12LinesVisible;
     if (declinationLinesToggle) declinationLinesToggle.checked = declinationLinesVisible;
     if (starToggle) starToggle.checked = starsVisible;
@@ -1316,6 +1326,84 @@ function initApp() {
       }
     }
 
+    function drawLunarOrbit3D() {
+      if (!lunarOrbitVisible) return;
+      if (!window.LunarOrbit) return;
+      
+      const JD = window.julianDate || 2451545.0;
+      const points = window.LunarOrbit.generateLunarOrbitPoints(5, JD);
+      
+      if (!points || points.length === 0) return;
+      
+      ctx.strokeStyle = '#00FFFF';  // シアン（白道）
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+      
+      if (!applyDepthShading) {
+        // 奥行き暗化なし：通常描画
+        ctx.beginPath();
+        let started = false;
+        for (const p of points) {
+          let { x, y, z } = toHorizontal(p.ra, p.dec, angle);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const pr = project(x, y, z);
+          if (pr) {
+            if (!started) {
+              ctx.moveTo(pr.sx, pr.sy);
+              started = true;
+            } else {
+              ctx.lineTo(pr.sx, pr.sy);
+            }
+          } else {
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
+          }
+        }
+        if (started) ctx.stroke();
+      } else {
+        // 奥行き暗化あり：セグメント分割
+        const projectedPoints = [];
+        for (const p of points) {
+          let { x, y, z } = toHorizontal(p.ra, p.dec, angle);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const pr = project(x, y, z);
+          if (pr) {
+            projectedPoints.push(pr);
+          }
+        }
+        
+        if (projectedPoints.length === 0) return;
+        
+        let currentAlpha = null;
+        ctx.beginPath();
+        ctx.moveTo(projectedPoints[0].sx, projectedPoints[0].sy);
+        
+        for (let i = 0; i < projectedPoints.length; i++) {
+          const pr = projectedPoints[i];
+          const alpha = pr.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
+          
+          if (currentAlpha !== null && currentAlpha !== alpha) {
+            // alpha値が変わったら、一旦strokeして新しいパスを開始
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pr.sx, pr.sy);
+          }
+          
+          if (currentAlpha !== alpha) {
+            ctx.globalAlpha = alpha;
+            currentAlpha = alpha;
+          }
+          
+          ctx.lineTo(pr.sx, pr.sy);
+        }
+        
+        ctx.stroke();
+        ctx.globalAlpha = 1.0; // リセット
+      }
+    }
+
     function drawAltitudeGrid() {
       if (!showAltGrid) return;
 
@@ -1837,6 +1925,7 @@ function initApp() {
       drawAltitudeGrid();
       drawMeridian();
       drawEquator();
+      drawLunarOrbit3D();  // 白道描画（黄道と赤道の間）
       drawEcliptic();
       drawEclipticBand();
       drawZodiacDivisions();

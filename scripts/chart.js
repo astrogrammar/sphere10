@@ -161,6 +161,46 @@
     ctx.arc(cx, cy, PLANET_RING_R, 0, Math.PI * 2);
     ctx.stroke();
 
+    // 白道（Lunar Orbit）描画
+    const lunarOrbitToggle = document.getElementById('lunarOrbitToggle');
+    if (lunarOrbitToggle && lunarOrbitToggle.checked && window.LunarOrbit) {
+      const JD = window.julianDate || 2451545.0;
+      const points = window.LunarOrbit.generateLunarOrbitPoints(5, JD);
+      
+      ctx.save();
+      ctx.translate(cx, cy);
+      
+      ctx.beginPath();
+      let started = false;
+      
+      for (const p of points) {
+        // 黄道座標（λ, β）を2D極座標に変換
+        // 黄経λを角度、黄緯βを半径のオフセットとして使用
+        const angleDeg = 180 - (p.lon * 180 / Math.PI);  // 黄経を角度に変換（9時位置基準）
+        const angleRad = deg2rad(angleDeg);
+        const radiusOffset = p.lat * SIGN_RING_R * 0.1;  // 黄緯による半径変化
+        const r = SIGN_RING_R * 0.95 + radiusOffset;
+        const x = r * Math.cos(angleRad);
+        const y = r * Math.sin(angleRad);
+        
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      
+      ctx.closePath();
+      ctx.strokeStyle = '#999999';
+      ctx.lineWidth = 0.8;
+      ctx.globalAlpha = 0.8;
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+      
+      ctx.restore();
+    }
+
     // サイン記号（外周リング、グレー）
     ctx.fillStyle = SIGN_COLOR;
     ctx.textAlign = 'center';
