@@ -133,6 +133,7 @@ function initApp() {
     let longitude = 139.65;
     let showAltGrid = true;
     let showZenithNadir = true;
+    let primeVerticalVisible = false;
 
     // ★★★ 設定値記憶機能 ★★★
     function saveSettings() {
@@ -144,6 +145,7 @@ function initApp() {
           rotationEW: rotationEW,
           horizonVisible: horizonVisible,
           meridianVisible: meridianVisible,
+          primeVerticalVisible: primeVerticalVisible,
           equatorVisible: equatorVisible,
           eclipticVisible: eclipticVisible,
           eclipticBandVisible: eclipticBandVisible,
@@ -178,6 +180,7 @@ function initApp() {
           rotationEW = settings.rotationEW ?? 0;
           horizonVisible = settings.horizonVisible ?? true;
           meridianVisible = settings.meridianVisible ?? true;
+          primeVerticalVisible = settings.primeVerticalVisible ?? false;
           equatorVisible = settings.equatorVisible ?? true;
           eclipticVisible = settings.eclipticVisible ?? true;
           eclipticBandVisible = settings.eclipticBandVisible ?? true;
@@ -360,6 +363,7 @@ function initApp() {
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
     const meridianToggle = document.getElementById('meridianToggle');
+    const primeVerticalToggle = document.getElementById('primeVerticalToggle');
     const equatorToggle = document.getElementById('equatorToggle');
     const eclipticToggle = document.getElementById('eclipticToggle');
     const eclipticBandToggle = document.getElementById('eclipticBandToggle');
@@ -369,6 +373,7 @@ function initApp() {
     const zenithNadirToggle = document.getElementById('zenithNadirToggle');
     let horizonVisible = horizonToggle.checked;
     let meridianVisible = meridianToggle.checked;
+    primeVerticalVisible = primeVerticalToggle ? primeVerticalToggle.checked : primeVerticalVisible;
     let equatorVisible = equatorToggle.checked;
     let eclipticVisible = eclipticToggle.checked;
     let eclipticBandVisible = eclipticBandToggle.checked;
@@ -394,6 +399,13 @@ function initApp() {
     });
     horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    if (primeVerticalToggle) {
+      primeVerticalToggle.addEventListener('change', () => {
+        primeVerticalVisible = primeVerticalToggle.checked;
+        saveSettings();
+        requestRender();
+      });
+    }
     equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
@@ -444,6 +456,7 @@ function initApp() {
     // チェックボックスの状態を復元
     if (horizonToggle) horizonToggle.checked = horizonVisible;
     if (meridianToggle) meridianToggle.checked = meridianVisible;
+    if (primeVerticalToggle) primeVerticalToggle.checked = primeVerticalVisible;
     if (equatorToggle) equatorToggle.checked = equatorVisible;
     if (eclipticToggle) eclipticToggle.checked = eclipticVisible;
     if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
@@ -1227,16 +1240,36 @@ function initApp() {
 
     const epsilon = 23.439281 * Math.PI / 180;
     
-    function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360) {
+    function draw3DCurve(pointGenerator, color, lineWidth = 1, dashed = false, steps = 360, options = {}) {
+      ctx.save();
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.setLineDash(dashed ? [5, 5] : []);
+
+      const useDepthShading = options.depthShade && showBackSide;
+      const baseAlpha = ctx.globalAlpha;
+      const backAlphaScale = options.backAlpha ?? 0.35;
+      const frontAlpha = baseAlpha;
+      const backAlpha = baseAlpha * backAlphaScale;
+      let currentAlpha = useDepthShading ? undefined : baseAlpha;
+
       let started = false;
       for (let i = 0; i <= steps; i++) {
-        const t = i * (2 * Math.PI / steps);
-        const { ra, dec } = raDecFunc(t);
-        let { x, y, z } = toHorizontal(ra, dec, angle);
+        let { x, y, z } = pointGenerator(i, steps);
         ({ x, y, z } = applyAllRotations(x, y, z));
+
+        if (useDepthShading) {
+          const targetAlpha = (x < 0) ? backAlpha : frontAlpha;
+          if (currentAlpha === undefined || targetAlpha !== currentAlpha) {
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
+            ctx.globalAlpha = targetAlpha;
+            currentAlpha = targetAlpha;
+          }
+        }
+
         const p = project(x, y, z);
         if (p) {
           if (!started) {
@@ -1254,21 +1287,53 @@ function initApp() {
         }
       }
       if (started) { ctx.stroke(); }
+      ctx.restore();
+    }
+
+    function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360, options = {}) {
+      draw3DCurve(
+        (i, totalSteps) => {
+          const t = i * (2 * Math.PI / totalSteps);
+          const { ra, dec } = raDecFunc(t);
+          return toHorizontal(ra, dec, angle);
+        },
+        color,
+        lineWidth,
+        dashed,
+        steps,
+        options
+      );
     }
 
     function drawMeridian() {
       if (!meridianVisible) return;
       drawGreatCircle(
         (t) => {
-          const dec = t - Math.PI; 
-          const ra = angle; 
+          const dec = t - Math.PI;
+          const ra = angle;
           return { ra, dec };
         },
         "#4097E8",
         2,
         false,
-        360
+        360,
+        { depthShade: true }
       ); // false＝実線
+    }
+
+    function drawPrimeVertical() {
+      if (!primeVerticalVisible) return;
+      draw3DCurve(
+        (i, totalSteps) => {
+          const t = i * (2 * Math.PI / totalSteps);
+          return { x: Math.cos(t), y: 0, z: Math.sin(t) };
+        },
+        "#4097E8",
+        2,
+        false,
+        360,
+        { depthShade: true }
+      );
     }
 
     function drawEquator() {
@@ -1610,6 +1675,7 @@ function initApp() {
       drawHorizon();
       drawAltitudeGrid();
       drawMeridian();
+      drawPrimeVertical();
       drawEquator();
       drawEcliptic();
       drawEclipticBand();
