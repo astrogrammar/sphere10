@@ -144,6 +144,7 @@ function initApp() {
           rotationEW: rotationEW,
           horizonVisible: horizonVisible,
           meridianVisible: meridianVisible,
+          primeVerticalVisible: primeVerticalVisible,
           equatorVisible: equatorVisible,
           eclipticVisible: eclipticVisible,
           eclipticBandVisible: eclipticBandVisible,
@@ -178,6 +179,7 @@ function initApp() {
           rotationEW = settings.rotationEW ?? 0;
           horizonVisible = settings.horizonVisible ?? true;
           meridianVisible = settings.meridianVisible ?? true;
+          primeVerticalVisible = settings.primeVerticalVisible ?? false;
           equatorVisible = settings.equatorVisible ?? true;
           eclipticVisible = settings.eclipticVisible ?? true;
           eclipticBandVisible = settings.eclipticBandVisible ?? true;
@@ -360,6 +362,7 @@ function initApp() {
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
     const meridianToggle = document.getElementById('meridianToggle');
+    const primeVerticalToggle = document.getElementById('togglePrimeVertical');
     const equatorToggle = document.getElementById('equatorToggle');
     const eclipticToggle = document.getElementById('eclipticToggle');
     const eclipticBandToggle = document.getElementById('eclipticBandToggle');
@@ -369,6 +372,7 @@ function initApp() {
     const zenithNadirToggle = document.getElementById('zenithNadirToggle');
     let horizonVisible = horizonToggle.checked;
     let meridianVisible = meridianToggle.checked;
+    let primeVerticalVisible = primeVerticalToggle ? primeVerticalToggle.checked : false;
     let equatorVisible = equatorToggle.checked;
     let eclipticVisible = eclipticToggle.checked;
     let eclipticBandVisible = eclipticBandToggle.checked;
@@ -394,6 +398,13 @@ function initApp() {
     });
     horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    if (primeVerticalToggle) {
+      primeVerticalToggle.addEventListener('change', () => {
+        primeVerticalVisible = primeVerticalToggle.checked;
+        saveSettings();
+        requestRender();
+      });
+    }
     equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
@@ -444,6 +455,7 @@ function initApp() {
     // チェックボックスの状態を復元
     if (horizonToggle) horizonToggle.checked = horizonVisible;
     if (meridianToggle) meridianToggle.checked = meridianVisible;
+    if (primeVerticalToggle) primeVerticalToggle.checked = primeVerticalVisible;
     if (equatorToggle) equatorToggle.checked = equatorVisible;
     if (eclipticToggle) eclipticToggle.checked = eclipticVisible;
     if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
@@ -1260,8 +1272,8 @@ function initApp() {
       if (!meridianVisible) return;
       drawGreatCircle(
         (t) => {
-          const dec = t - Math.PI; 
-          const ra = angle; 
+          const dec = t - Math.PI;
+          const ra = angle;
           return { ra, dec };
         },
         "#4097E8",
@@ -1271,8 +1283,45 @@ function initApp() {
       ); // false＝実線
     }
 
+    function drawPrimeVertical() {
+      if (!primeVerticalVisible) return;
+
+      ctx.save();
+      ctx.strokeStyle = "#66CCFF";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+
+      let started = false;
+      const steps = 360;
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const t = i * (2 * Math.PI / steps);
+        let x = Math.cos(t);
+        let y = 0;
+        let z = Math.sin(t);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        if (p) {
+          if (!started) {
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            ctx.lineTo(p.sx, p.sy);
+          }
+        } else if (started) {
+          ctx.stroke();
+          ctx.beginPath();
+          started = false;
+        }
+      }
+      if (started) {
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     function drawEquator() {
-      if (!equatorVisible) return; 
+      if (!equatorVisible) return;
       drawGreatCircle((t) => ({ ra: t, dec: 0 }), "red", 2, false); // false＝実線
     }
 
@@ -1610,6 +1659,9 @@ function initApp() {
       drawHorizon();
       drawAltitudeGrid();
       drawMeridian();
+      if (primeVerticalVisible) {
+        drawPrimeVertical();
+      }
       drawEquator();
       drawEcliptic();
       drawEclipticBand();
