@@ -1145,11 +1145,13 @@ function initApp() {
 
     function drawHorizon() {
       if (!horizonVisible) return;
+      ctx.save();
       ctx.strokeStyle = "green";
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
-      ctx.beginPath();
       let started = false;
+      let currentSide = null;
+      const depthShadingEnabled = showBackSide;
       const steps = 360;
       for (let i = 0; i <= steps; i++) {
         const az = i * (2 * Math.PI / steps);
@@ -1160,20 +1162,35 @@ function initApp() {
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         if (p) {
-          if (!started) { 
-            ctx.moveTo(p.sx, p.sy); 
-            started = true; 
-          } else { 
-            ctx.lineTo(p.sx, p.sy); 
+          if (depthShadingEnabled) {
+            const isFront = x >= 0;
+            const side = isFront ? 1 : -1;
+            if (currentSide !== side) {
+              if (started) {
+                ctx.stroke();
+                started = false;
+              }
+              ctx.globalAlpha = isFront ? 1 : BACK_SIDE_ALPHA;
+              currentSide = side;
+            }
+          }
+          if (!started) {
+            ctx.beginPath();
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            ctx.lineTo(p.sx, p.sy);
           }
         } else {
           if (started) {
             ctx.stroke();
             started = false;
           }
+          currentSide = null;
         }
       }
       if (started) { ctx.stroke(); }
+      ctx.restore();
     }
 
     function drawAltitudeGrid() {
@@ -1226,12 +1243,16 @@ function initApp() {
     }
 
     const epsilon = 23.439281 * Math.PI / 180;
+    const BACK_SIDE_ALPHA = 0.35;
     
     function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360) {
+      ctx.save();
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.setLineDash(dashed ? [5, 5] : []);
       let started = false;
+      let currentSide = null;
+      const depthShadingEnabled = showBackSide;
       for (let i = 0; i <= steps; i++) {
         const t = i * (2 * Math.PI / steps);
         const { ra, dec } = raDecFunc(t);
@@ -1239,6 +1260,18 @@ function initApp() {
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         if (p) {
+          if (depthShadingEnabled) {
+            const isFront = x >= 0;
+            const side = isFront ? 1 : -1;
+            if (currentSide !== side) {
+              if (started) {
+                ctx.stroke();
+                started = false;
+              }
+              ctx.globalAlpha = isFront ? 1 : BACK_SIDE_ALPHA;
+              currentSide = side;
+            }
+          }
           if (!started) {
             ctx.beginPath();
             ctx.moveTo(p.sx, p.sy);
@@ -1251,9 +1284,11 @@ function initApp() {
             ctx.stroke();
             started = false;
           }
+          currentSide = null;
         }
       }
       if (started) { ctx.stroke(); }
+      ctx.restore();
     }
 
     function drawMeridian() {
