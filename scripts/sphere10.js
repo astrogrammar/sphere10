@@ -1424,7 +1424,7 @@ function initApp() {
     // ★★★ 赤緯線 (Declination Lines) の描画 ★★★
     function drawDeclinationLines() {
       if (!declinationLinesVisible) return;
-      
+
       // 赤道よりも20%暗い赤色を使用
       ctx.strokeStyle =  'rgba(255, 0, 0, 0.7)'; //"#611717",#a32929
       ctx.lineWidth = 0.5;
@@ -1467,6 +1467,65 @@ function initApp() {
       
       // 点線リセット
       ctx.setLineDash([]);
+    }
+
+    function drawPrimeVertical() {
+      if (!primeVerticalVisible) return;
+
+      ctx.save();
+      ctx.strokeStyle = "#66CCFF";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+
+      const steps = 360;
+      const FRONT_ALPHA = 1.0;
+      const BACK_ALPHA = 0.3;
+
+      const points = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i * (2 * Math.PI / steps);
+        let x = Math.cos(t);
+        let y = 0;
+        let z = Math.sin(t);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const isBack = (x < 0);
+        const projected = project(x, y, z);
+        if (projected) {
+          points.push({ sx: projected.sx, sy: projected.sy, isBack, step: i });
+        }
+      }
+
+      if (points.length === 0) {
+        ctx.restore();
+        return;
+      }
+
+      let currentAlpha = null;
+      let previousStep = null;
+      ctx.beginPath();
+      for (const point of points) {
+        const targetAlpha = point.isBack ? BACK_ALPHA : FRONT_ALPHA;
+        const hasGap = previousStep !== null && (point.step - previousStep) > 1;
+        if (currentAlpha !== targetAlpha || hasGap) {
+          if (currentAlpha !== null) {
+            ctx.stroke();
+            ctx.beginPath();
+          }
+          ctx.globalAlpha = targetAlpha;
+          currentAlpha = targetAlpha;
+          ctx.moveTo(point.sx, point.sy);
+        } else {
+          ctx.lineTo(point.sx, point.sy);
+        }
+        previousStep = point.step;
+      }
+
+      if (currentAlpha !== null) {
+        ctx.stroke();
+      }
+
+      ctx.globalAlpha = 1.0;
+      ctx.restore();
     }
 
     // ★★★ 方角 (Cardinal Directions) の描画 ★★★
