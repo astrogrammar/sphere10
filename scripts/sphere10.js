@@ -886,14 +886,14 @@ function initApp() {
     let moonDec = 0; 
 
     const planetData = [
-      { name: "Mercury", body: Astronomy.Body.Mercury, color: "#cccccc", RA: 0, Dec: 0 },
-      { name: "Venus",   body: Astronomy.Body.Venus,   color: "#cc99ff", RA: 0, Dec: 0 },
-      { name: "Mars",    body: Astronomy.Body.Mars,    color: "#ff2222", RA: 0, Dec: 0 },
-      { name: "Jupiter", body: Astronomy.Body.Jupiter, color: "#ffffcc", RA: 0, Dec: 0 },
-      { name: "Saturn",  body: Astronomy.Body.Saturn,  color: "#ff9966", RA: 0, Dec: 0 },
-      { name: "Uranus",  body: Astronomy.Body.Uranus,  color: "#66ccff", RA: 0, Dec: 0 },
-      { name: "Neptune", body: Astronomy.Body.Neptune, color: "#6699ff", RA: 0, Dec: 0 },
-      { name: "Pluto",   body: Astronomy.Body.Pluto,   color: "#aaaaaa", RA: 0, Dec: 0 }
+      { name: "  ☿ Mercury", body: Astronomy.Body.Mercury, color: "#cccccc", RA: 0, Dec: 0 },
+      { name: "♀ Venus",   body: Astronomy.Body.Venus,   color: "#cc99ff", RA: 0, Dec: 0 },
+      { name: "♂ Mars",    body: Astronomy.Body.Mars,    color: "#ff2222", RA: 0, Dec: 0 },
+      { name: "♃ Jupiter", body: Astronomy.Body.Jupiter, color: "#ffffcc", RA: 0, Dec: 0 },
+      { name: "♄ Saturn",  body: Astronomy.Body.Saturn,  color: "#ff9966", RA: 0, Dec: 0 },
+      { name: "♅ Uranus",  body: Astronomy.Body.Uranus,  color: "#66ccff", RA: 0, Dec: 0 },
+      { name: " ♆ Neptune", body: Astronomy.Body.Neptune, color: "#6699ff", RA: 0, Dec: 0 },
+      { name: "♇ Pluto",   body: Astronomy.Body.Pluto,   color: "#aaaaaa", RA: 0, Dec: 0 }
     ];
 
     async function updateAllPositions() {
