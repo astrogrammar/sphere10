@@ -2,8 +2,46 @@
 // Sphere10 ver.2.0 - 天球シミュレーター
 // 古典占星術向けの3D天球表示アプリケーション
 
+// ========================================
+// 定数定義
+// ========================================
+const CONSTANTS = {
+  // キャンバス・描画設定
+  CANVAS_SCALE_FACTOR: 0.35,
+  ZOOM_DEFAULT: 1.0,
+  ZOOM_MIN: 0.1,
+  ZOOM_MAX: 10,
+  ZOOM_WHEEL_SENSITIVITY: 0.001,
+  
+  // タッチ・マウス操作
+  TOUCH_ROTATION_SENSITIVITY: 0.005,
+  MOUSE_ROTATION_SENSITIVITY: 0.005,
+  
+  // 深度シェーディング
+  DEPTH_ALPHA_FRONT: 1.0,
+  DEPTH_ALPHA_BACK: 0.4,
+  
+  // 座標変換
+  ZENITH_NADIR_THRESHOLD: 1e-10,
+  
+  // グリッド・線の描画
+  GREAT_CIRCLE_LINE_WIDTH: 2,
+  
+  // 色定義
+  COLORS: {
+    MERIDIAN: '#4097E8',
+    EQUATOR: 'red',
+    ECLIPTIC: 'orange'
+  }
+};
+
 // ★★★ 初期化関数 ★★★
 function initApp() {
+    // ★★★ 恒星名表示機能の初期化 ★★★
+    if (typeof initStarNames === 'function') {
+        initStarNames();
+    }
+    
     // キャンバス要素の取得とサイズ設定
     const canvas = document.getElementById('sky');
     const ctx = canvas.getContext('2d');
@@ -12,8 +50,8 @@ function initApp() {
 
     const w = canvas.width;
     const h = canvas.height;
-    let zoom = 1.0;
-    let scale = w * 0.35 * zoom;
+    let zoom = CONSTANTS.ZOOM_DEFAULT;
+    let scale = w * CONSTANTS.CANVAS_SCALE_FACTOR * zoom;
     const centerX = w / 2;
     const centerY = h / 2;
 
@@ -47,8 +85,8 @@ function initApp() {
             const dx = touch.clientX - lastMouseX;
             const dy = touch.clientY - lastMouseY;
             
-            rotationZ += dx * 0.005;
-            rotationY += dy * 0.005;
+            rotationZ += dx * CONSTANTS.TOUCH_ROTATION_SENSITIVITY;
+            rotationY += dy * CONSTANTS.TOUCH_ROTATION_SENSITIVITY;
             
             window.lastRotationTime = Date.now();
             
@@ -70,7 +108,7 @@ function initApp() {
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             const currentDistance = Math.hypot(dx, dy);
             zoom = initialZoom * (currentDistance / initialTouchDistance);
-            zoom = Math.min(Math.max(zoom, 0.1), 10);
+            zoom = Math.min(Math.max(zoom, CONSTANTS.ZOOM_MIN), CONSTANTS.ZOOM_MAX);
             scale = w * 0.4 * zoom;
             e.preventDefault();
             requestRender();
@@ -92,9 +130,9 @@ function initApp() {
     // ★★★ マウスホイールによるズーム機能 ★★★
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = -e.deltaY * 0.001;  
+        const delta = -e.deltaY * CONSTANTS.ZOOM_WHEEL_SENSITIVITY;  
         zoom += delta;
-        zoom = Math.min(Math.max(zoom, 0.1), 10);
+        zoom = Math.min(Math.max(zoom, CONSTANTS.ZOOM_MIN), CONSTANTS.ZOOM_MAX);
         scale = w * 0.4 * zoom;
         requestRender(); 
     });
@@ -121,6 +159,10 @@ function initApp() {
     let rafId = null;
     let needsRender = true;
     
+    // ★★★ Safari最適化: Canvas context定期リセット ★★★
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    let safariFrameCount = 0;
+    
     // ★ ADDED (Phase 1): Throttle ephemeris calculations
     let lastEphemerisUpdate = 0;
     const EPHEMERIS_INTERVAL = 250; // ms
@@ -133,6 +175,19 @@ function initApp() {
     let longitude = 139.65;
     let showAltGrid = true;
     let showZenithNadir = true;
+    
+    // ★★★ トロピカル/サイデリアル切り替え ★★★
+    const AYANAMSHA = 25; // サイデリアル方式のオフセット（度）
+    let isSidereal = false; // デフォルトはトロピカル方式
+    
+    // ★ ADDED: isSiderealをwindowオブジェクトに公開（chart.jsからアクセスするため）
+    Object.defineProperty(window, 'isSidereal', {
+      get: () => isSidereal,
+      set: (value) => {
+        isSidereal = value;
+        saveSettings();
+      }
+    });
 
     // ★★★ 設定値記憶機能 ★★★
     function saveSettings() {
@@ -151,11 +206,14 @@ function initApp() {
           declinationLinesVisible: declinationLinesVisible,
           starsVisible: starsVisible,
           showBackSide: showBackSide,
+          applyDepthShading: applyDepthShading,
           planetLabelsVisible: planetLabelsVisible,
           reverseEastWest: reverseEastWest,
           directionVisible: directionVisible,
           showAltGrid: showAltGrid,
-          showZenithNadir: showZenithNadir
+          showZenithNadir: showZenithNadir,
+          isSidereal: isSidereal,
+          lunarOrbitVisible: lunarOrbitVisible
         };
         if (typeof store !== 'undefined') {
           store.set('sphere10_settings', JSON.stringify(settings));
@@ -185,10 +243,13 @@ function initApp() {
           declinationLinesVisible = settings.declinationLinesVisible ?? true;
           starsVisible = settings.starsVisible ?? true;
           showBackSide = settings.showBackSide ?? false;
+          applyDepthShading = settings.applyDepthShading ?? false;
           planetLabelsVisible = settings.planetLabelsVisible ?? false;
           reverseEastWest = settings.reverseEastWest ?? false;
           directionVisible = settings.directionVisible ?? true;
           showAltGrid = settings.showAltGrid ?? showAltGrid;
+          isSidereal = settings.isSidereal ?? false;
+          lunarOrbitVisible = settings.lunarOrbitVisible ?? false;
           const storedZenithNadir = normalizeStoredBoolean(settings.showZenithNadir);
           if (typeof storedZenithNadir === 'boolean') {
             showZenithNadir = storedZenithNadir;
@@ -347,15 +408,33 @@ function initApp() {
     // ★★★ 恒星表示・裏側描画のフラグ ★★★
     let starsVisible = true;
     let showBackSide = false;
+    let applyDepthShading = false; // ★ ADDED: 奥行き暗化モード（裏側描画と連動）
     const starToggle = document.getElementById('starToggle');
     starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     const backToggle = document.getElementById('backToggle');
-    backToggle.addEventListener('change', () => { showBackSide = backToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    backToggle.addEventListener('change', () => { 
+      showBackSide = backToggle.checked; 
+      applyDepthShading = backToggle.checked; // ★ ADDED: 裏側描画と奥行き暗化を連動
+      saveSettings(); 
+      requestRender(); 
+    });
 
     // ★★★ 惑星ラベルの表示フラグ ★★★
     let planetLabelsVisible = false;
     const planetLabelToggle = document.getElementById('planetLabelToggle');
     planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+
+    // ★★★ 恒星名表示フラグ ★★★
+    let starNamesVisible = false;
+    const starNamesToggle = document.getElementById('starNamesToggle');
+    starNamesToggle.addEventListener('change', () => { starNamesVisible = starNamesToggle.checked; saveSettings(); requestRender(); });
+
+    // ★★★ 白道表示フラグ ★★★
+    const lunarOrbitToggle = document.getElementById('lunarOrbitToggle');
+    let lunarOrbitVisible = lunarOrbitToggle ? lunarOrbitToggle.checked : false;
+    if (lunarOrbitToggle) {
+      lunarOrbitToggle.addEventListener('change', () => { lunarOrbitVisible = lunarOrbitToggle.checked; saveSettings(); requestRender(); });
+    }
 
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
@@ -447,6 +526,7 @@ function initApp() {
     if (equatorToggle) equatorToggle.checked = equatorVisible;
     if (eclipticToggle) eclipticToggle.checked = eclipticVisible;
     if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
+    if (lunarOrbitToggle) lunarOrbitToggle.checked = lunarOrbitVisible;
     if (ra12LinesToggle) ra12LinesToggle.checked = ra12LinesVisible;
     if (declinationLinesToggle) declinationLinesToggle.checked = declinationLinesVisible;
     if (starToggle) starToggle.checked = starsVisible;
@@ -544,8 +624,8 @@ function initApp() {
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
         // 感度は適宜調整（ここでは 0.005 ラジアン/ピクセル）
-        rotationZ += dx * 0.005;
-        rotationY += dy * 0.005;
+        rotationZ += dx * CONSTANTS.MOUSE_ROTATION_SENSITIVITY;
+        rotationY += dy * CONSTANTS.MOUSE_ROTATION_SENSITIVITY;
         window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
@@ -806,18 +886,21 @@ function initApp() {
     let moonDec = 0; 
 
     const planetData = [
-      { name: "Mercury", body: Astronomy.Body.Mercury, color: "#cccccc", RA: 0, Dec: 0 },
-      { name: "Venus",   body: Astronomy.Body.Venus,   color: "#cc99ff", RA: 0, Dec: 0 },
-      { name: "Mars",    body: Astronomy.Body.Mars,    color: "#ff2222", RA: 0, Dec: 0 },
-      { name: "Jupiter", body: Astronomy.Body.Jupiter, color: "#ffffcc", RA: 0, Dec: 0 },
-      { name: "Saturn",  body: Astronomy.Body.Saturn,  color: "#ff9966", RA: 0, Dec: 0 },
-      { name: "Uranus",  body: Astronomy.Body.Uranus,  color: "#66ccff", RA: 0, Dec: 0 },
-      { name: "Neptune", body: Astronomy.Body.Neptune, color: "#6699ff", RA: 0, Dec: 0 },
-      { name: "Pluto",   body: Astronomy.Body.Pluto,   color: "#aaaaaa", RA: 0, Dec: 0 }
+      { name: "  ☿ Mercury", body: Astronomy.Body.Mercury, color: "#cccccc", RA: 0, Dec: 0 },
+      { name: "♀ Venus",   body: Astronomy.Body.Venus,   color: "#cc99ff", RA: 0, Dec: 0 },
+      { name: "♂ Mars",    body: Astronomy.Body.Mars,    color: "#ff2222", RA: 0, Dec: 0 },
+      { name: "♃ Jupiter", body: Astronomy.Body.Jupiter, color: "#ffffcc", RA: 0, Dec: 0 },
+      { name: "♄ Saturn",  body: Astronomy.Body.Saturn,  color: "#ff9966", RA: 0, Dec: 0 },
+      { name: "♅ Uranus",  body: Astronomy.Body.Uranus,  color: "#66ccff", RA: 0, Dec: 0 },
+      { name: " ♆ Neptune", body: Astronomy.Body.Neptune, color: "#6699ff", RA: 0, Dec: 0 },
+      { name: "♇ Pluto",   body: Astronomy.Body.Pluto,   color: "#aaaaaa", RA: 0, Dec: 0 }
     ];
 
     async function updateAllPositions() {
       const time = Astronomy.MakeTime(currentDate);
+      // ★★★ Set absolute Julian Date for lunar orbit calculation
+      // time.ut is days since J2000, so add J2000 epoch to get absolute JD
+      window.julianDate = time.ut + 2451545.0;
       const observer = new Astronomy.Observer(latitude, longitude, 0);
       const equSun = Astronomy.Equator(Astronomy.Body.Sun, time, observer, true, true);
       sunRA = equSun.ra;
@@ -873,8 +956,9 @@ function initApp() {
         window.planetEclipticLatitudes[planet.key] = ecl.elat; // ★ ADDED (Phase 1)
       }
 
-      console.log('[sphere10.js] Ecliptic longitudes computed:', window.planetEclipticLongitudes);
-      console.log('[sphere10.js] Ecliptic latitudes computed:', window.planetEclipticLatitudes); // ★ ADDED (Phase 1)
+      // ★ DEBUG: 惑星座標の計算結果（高頻度出力のためコメントアウト）
+      // console.log('[sphere10.js] Ecliptic longitudes computed:', window.planetEclipticLongitudes);
+      // console.log('[sphere10.js] Ecliptic latitudes computed:', window.planetEclipticLatitudes);
       // ========================================
       // ★ END ADDED
       // ========================================
@@ -886,11 +970,23 @@ function initApp() {
       const ha = lst - ra;
       const sinAlt = Math.sin(dec) * Math.sin(latRad) + Math.cos(dec) * Math.cos(latRad) * Math.cos(ha);
       const alt = Math.asin(sinAlt);
-      const cosAz = (Math.sin(dec) - Math.sin(latRad) * Math.sin(alt)) / (Math.cos(latRad) * Math.cos(alt));
-      let az = Math.acos(cosAz);
-      if (Math.sin(ha) > 0) az = 2 * Math.PI - az;
-      const x = Math.cos(alt) * Math.sin(az);
-      const y = -Math.cos(alt) * Math.cos(az);
+      
+      // ★ FIXED: 天頂/天底の特別処理（子午線がNaNになる問題を修正）
+      const cosAlt = Math.cos(alt);
+      let az;
+      if (Math.abs(cosAlt) < CONSTANTS.ZENITH_NADIR_THRESHOLD) {
+        // 天頂または天底: 方位角は不定だが、x=0, y=0 とする
+        az = 0;
+      } else {
+        const cosAz = (Math.sin(dec) - Math.sin(latRad) * Math.sin(alt)) / (Math.cos(latRad) * cosAlt);
+        // ★ FIXED: 数値誤差対策
+        const clampedCosAz = Math.max(-1, Math.min(1, cosAz));
+        az = Math.acos(clampedCosAz);
+        if (Math.sin(ha) > 0) az = 2 * Math.PI - az;
+      }
+      
+      const x = cosAlt * Math.sin(az);
+      const y = -cosAlt * Math.cos(az);
       const z = Math.sin(alt);
       return { x, y, z };
     }
@@ -915,13 +1011,15 @@ function initApp() {
     }
 
     // 裏側描画フラグを考慮
+    // ★ MODIFIED: isBackSideフラグを返すように変更（奥行き暗化対応）
     function project(x, y, z) {
-      if (!showBackSide && x < 0) return null;
+      const isBackSide = x < 0; // X軸が奥行き（負=奥側）
+      if (!showBackSide && isBackSide) return null;
       // 東西反転トグルがオンの場合、y の符号を反転
       const effectiveY = reverseEastWest ? -y : y;
       const sx = centerX + scale * effectiveY;
       const sy = centerY - scale * z;
-      return { sx, sy };
+      return { sx, sy, isBackSide };
     }
 
     const magToSize = [
@@ -993,6 +1091,7 @@ function initApp() {
       const drawStart = debugMode ? performance.now() : 0; 
       
       // 星を色とサイズでグループ化してバッチ描画
+      // ★ MODIFIED: 奥行き暗化対応（αもグループ化のキーに含める）
       const starGroups = new Map();
       
       for (const star of starsData) {
@@ -1005,10 +1104,12 @@ function initApp() {
         if (p) {
           const size = getStarSize(star.Vmag);
           const color = getStarColor(star.Vmag);
-          const key = `${color}_${size}`;
+          // ★ ADDED: 奥行き暗化モード時はαを計算
+          const alpha = (applyDepthShading && p.isBackSide) ? 0.4 : 1.0;
+          const key = `${color}_${size}_${alpha}`;
           
           if (!starGroups.has(key)) {
-            starGroups.set(key, { color, size, points: [] });
+            starGroups.set(key, { color, size, alpha, points: [] });
           }
           starGroups.get(key).points.push({ x: p.sx, y: p.sy });
         }
@@ -1016,6 +1117,7 @@ function initApp() {
       
       // グループ毎にまとめて描画（大幅な最適化）
       for (const [key, group] of starGroups) {
+        ctx.globalAlpha = group.alpha; // ★ ADDED: グループ単位でα設定
         ctx.fillStyle = group.color;
         ctx.beginPath();
         for (const point of group.points) {
@@ -1024,6 +1126,8 @@ function initApp() {
         }
         ctx.fill();
       }
+      
+      ctx.globalAlpha = 1.0; // ★ FIXED: α値をリセット（後続描画への影響を防止）
       
       // ★★★ デバッグ用描画時間測定 ★★★
       if (debugMode) {
@@ -1147,33 +1251,160 @@ function initApp() {
       if (!horizonVisible) return;
       ctx.strokeStyle = "green";
       ctx.lineWidth = 2;
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      let started = false;
+      const dashPattern = [];
+      ctx.setLineDash(dashPattern);
+      
       const steps = 360;
-      for (let i = 0; i <= steps; i++) {
-        const az = i * (2 * Math.PI / steps);
-        const alt = 0;
-        let x = Math.cos(alt) * Math.sin(az);
-        let y = -Math.cos(alt) * Math.cos(az);
-        let z = Math.sin(alt);
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const p = project(x, y, z);
-        if (p) {
-          if (!started) { 
-            ctx.moveTo(p.sx, p.sy); 
-            started = true; 
-          } else { 
-            ctx.lineTo(p.sx, p.sy); 
-          }
-        } else {
-          if (started) {
-            ctx.stroke();
-            started = false;
+      
+      if (!applyDepthShading) {
+        // 奥行き暗化なし：通常描画
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i <= steps; i++) {
+          const az = i * (2 * Math.PI / steps);
+          const alt = 0;
+          let x = Math.cos(alt) * Math.sin(az);
+          let y = -Math.cos(alt) * Math.cos(az);
+          let z = Math.sin(alt);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            if (!started) { 
+              ctx.moveTo(p.sx, p.sy); 
+              started = true; 
+            } else { 
+              ctx.lineTo(p.sx, p.sy); 
+            }
+          } else {
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
           }
         }
+        if (started) { ctx.stroke(); }
+      } else {
+        // 奥行き暗化あり：裏側を暗くする
+        const points = [];
+        for (let i = 0; i <= steps; i++) {
+          const az = i * (2 * Math.PI / steps);
+          const alt = 0;
+          let x = Math.cos(alt) * Math.sin(az);
+          let y = -Math.cos(alt) * Math.cos(az);
+          let z = Math.sin(alt);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            points.push(p);
+          }
+        }
+        
+        if (points.length === 0) return;
+        
+        let currentAlpha = null;
+        ctx.beginPath();
+        ctx.moveTo(points[0].sx, points[0].sy);
+        
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          const alpha = p.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
+          
+          if (currentAlpha !== null && currentAlpha !== alpha) {
+            // alpha値が変わったら、一旦strokeして新しいパスを開始
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(p.sx, p.sy);
+          }
+          
+          if (currentAlpha !== alpha) {
+            ctx.globalAlpha = alpha;
+            currentAlpha = alpha;
+          }
+          
+          ctx.lineTo(p.sx, p.sy);
+        }
+        
+        ctx.stroke();
+        ctx.globalAlpha = 1.0; // リセット
       }
-      if (started) { ctx.stroke(); }
+    }
+
+    function drawLunarOrbit3D() {
+      if (!lunarOrbitVisible) return;
+      if (!window.LunarOrbit) return;
+      
+      const JD = window.julianDate || 2451545.0;
+      const points = window.LunarOrbit.generateLunarOrbitPoints(5, JD);
+      
+      if (!points || points.length === 0) return;
+      
+      ctx.strokeStyle = '#00FFFF';  // シアン（白道）
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+      
+      if (!applyDepthShading) {
+        // 奥行き暗化なし：通常描画
+        ctx.beginPath();
+        let started = false;
+        for (const p of points) {
+          let { x, y, z } = toHorizontal(p.ra, p.dec, angle);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const pr = project(x, y, z);
+          if (pr) {
+            if (!started) {
+              ctx.moveTo(pr.sx, pr.sy);
+              started = true;
+            } else {
+              ctx.lineTo(pr.sx, pr.sy);
+            }
+          } else {
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
+          }
+        }
+        if (started) ctx.stroke();
+      } else {
+        // 奥行き暗化あり：セグメント分割
+        const projectedPoints = [];
+        for (const p of points) {
+          let { x, y, z } = toHorizontal(p.ra, p.dec, angle);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const pr = project(x, y, z);
+          if (pr) {
+            projectedPoints.push(pr);
+          }
+        }
+        
+        if (projectedPoints.length === 0) return;
+        
+        let currentAlpha = null;
+        ctx.beginPath();
+        ctx.moveTo(projectedPoints[0].sx, projectedPoints[0].sy);
+        
+        for (let i = 0; i < projectedPoints.length; i++) {
+          const pr = projectedPoints[i];
+          const alpha = pr.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
+          
+          if (currentAlpha !== null && currentAlpha !== alpha) {
+            // alpha値が変わったら、一旦strokeして新しいパスを開始
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pr.sx, pr.sy);
+          }
+          
+          if (currentAlpha !== alpha) {
+            ctx.globalAlpha = alpha;
+            currentAlpha = alpha;
+          }
+          
+          ctx.lineTo(pr.sx, pr.sy);
+        }
+        
+        ctx.stroke();
+        ctx.globalAlpha = 1.0; // リセット
+      }
     }
 
     function drawAltitudeGrid() {
@@ -1227,33 +1458,102 @@ function initApp() {
 
     const epsilon = 23.439281 * Math.PI / 180;
     
+    // ★ MODIFIED: 奥行き暗化対応（手前と奥で線を分割）
+    // ★ MODIFIED: 奥行き暗化対応（1回のループで描画、パフォーマンス最適化）
     function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360) {
-      ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
-      ctx.setLineDash(dashed ? [5, 5] : []);
-      let started = false;
-      for (let i = 0; i <= steps; i++) {
-        const t = i * (2 * Math.PI / steps);
-        const { ra, dec } = raDecFunc(t);
-        let { x, y, z } = toHorizontal(ra, dec, angle);
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const p = project(x, y, z);
-        if (p) {
-          if (!started) {
-            ctx.beginPath();
-            ctx.moveTo(p.sx, p.sy);
-            started = true;
+      ctx.strokeStyle = color;
+      const dashPattern = dashed ? [5, 5] : [];
+      ctx.setLineDash(dashPattern);
+      
+      if (!applyDepthShading) {
+        // 奥行き暗化なし: 従来の描画
+        let started = false;
+        for (let i = 0; i <= steps; i++) {
+          const t = i * (2 * Math.PI / steps);
+          const { ra, dec } = raDecFunc(t);
+          let { x, y, z } = toHorizontal(ra, dec, angle);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          if (p) {
+            if (!started) {
+              ctx.beginPath();
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+            } else {
+              ctx.lineTo(p.sx, p.sy);
+            }
           } else {
-            ctx.lineTo(p.sx, p.sy);
-          }
-        } else {
-          if (started) {
-            ctx.stroke();
-            started = false;
+            if (started) {
+              ctx.stroke();
+              started = false;
+            }
           }
         }
+        if (started) { ctx.stroke(); }
+      } else {
+        // 奥行き暗化あり: 1回のループで手前/奥を切り替えながら描画
+        let currentAlpha = null;
+        let started = false;
+        let lastPoint = null;
+        
+        for (let i = 0; i <= steps; i++) {
+          const t = i * (2 * Math.PI / steps);
+          const { ra, dec } = raDecFunc(t);
+          let { x, y, z } = toHorizontal(ra, dec, angle);
+          ({ x, y, z } = applyAllRotations(x, y, z));
+          const p = project(x, y, z);
+          
+          if (p) {
+            const alpha = p.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
+            
+            // α値が変わったら、現在のパスを終了して新しいパスを開始
+            if (currentAlpha !== null && currentAlpha !== alpha) {
+              if (started) {
+                ctx.stroke();
+                ctx.globalAlpha = alpha;
+                currentAlpha = alpha;
+                ctx.beginPath();
+                if (lastPoint) {
+                  ctx.moveTo(lastPoint.sx, lastPoint.sy);
+                  ctx.lineTo(p.sx, p.sy);
+                } else {
+                  ctx.moveTo(p.sx, p.sy);
+                }
+                started = true;
+                lastPoint = p;
+              } else {
+                ctx.globalAlpha = alpha;
+                currentAlpha = alpha;
+                ctx.beginPath();
+                ctx.moveTo(p.sx, p.sy);
+                started = true;
+                lastPoint = p;
+              }
+            } else if (!started) {
+              ctx.globalAlpha = alpha;
+              currentAlpha = alpha;
+              ctx.beginPath();
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+              lastPoint = p;
+            } else {
+              ctx.lineTo(p.sx, p.sy);
+              lastPoint = p;
+            }
+          } else {
+            if (started) {
+              ctx.stroke();
+              started = false;
+              currentAlpha = null;
+              lastPoint = null;
+            }
+          }
+        }
+        
+        if (started) { ctx.stroke(); }
+        ctx.globalAlpha = 1.0; // リセット
       }
-      if (started) { ctx.stroke(); }
     }
 
     function drawMeridian() {
@@ -1264,16 +1564,16 @@ function initApp() {
           const ra = angle; 
           return { ra, dec };
         },
-        "#4097E8",
-        2,
+        CONSTANTS.COLORS.MERIDIAN,
+        CONSTANTS.GREAT_CIRCLE_LINE_WIDTH,
         false,
-        360
-      ); // false＝実線
+        180
+      ); // false＝実線, steps=180で半周（子午線は半周で完結）
     }
 
     function drawEquator() {
       if (!equatorVisible) return; 
-      drawGreatCircle((t) => ({ ra: t, dec: 0 }), "red", 2, false); // false＝実線
+      drawGreatCircle((t) => ({ ra: t, dec: 0 }), CONSTANTS.COLORS.EQUATOR, CONSTANTS.GREAT_CIRCLE_LINE_WIDTH, false); // false＝実線
     }
 
     function drawEcliptic() {
@@ -1282,7 +1582,7 @@ function initApp() {
         const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
         const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
         return { ra, dec };
-      }, "orange", 2, false);
+      }, CONSTANTS.COLORS.ECLIPTIC, CONSTANTS.GREAT_CIRCLE_LINE_WIDTH, false);
     }
 
     function drawEclipticBand() {
@@ -1318,13 +1618,16 @@ function initApp() {
       ctx.beginPath();
       const divisions = 12;
       
+      // ★ ADDED: サイデリアル方式対応
+      const offset = isSidereal ? AYANAMSHA : 0;
+      
       // 回転状態に応じて描画品質を動的調整
       const currentTime = window.currentFrameTime || Date.now();
       const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
       const steps = isRotating ? 12 : 20; // 回転中は軽量、静止時は高品質
       
       for (let i = 0; i < divisions; i++) {
-        const lambdaConst = i * 30 * Math.PI / 180;
+        const lambdaConst = (i * 30 + offset) * Math.PI / 180;
         let started = false;
         
         for (let j = 0; j <= steps; j++) {
@@ -1371,8 +1674,11 @@ function initApp() {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       
+      // ★ ADDED: サイデリアル方式対応
+      const offset = isSidereal ? AYANAMSHA : 0;
+      
       for (let i = 0; i < 12; i++) {
-        const lambdaDeg = i * 30 + 15;
+        const lambdaDeg = i * 30 + 15 + offset;
         const lambda = lambdaDeg * Math.PI / 180;
         const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
         const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
@@ -1563,9 +1869,20 @@ function initApp() {
       }
     }
     
+    // ★ ADDED: requestRenderをwindowオブジェクトに公開（chart.jsからアクセスするため）
+    window.requestRender = requestRender;
+    
     // ★ MODIFIED (Phase 1): Renamed from animate() to renderFrame()
     function renderFrame() {
       rafId = null;
+      safariFrameCount++;
+      
+      // ★★★ Safari最適化: 定期的にCanvas contextをリセット ★★★
+      if (isSafari && ctx.reset && safariFrameCount % 600 === 0) {
+        ctx.reset();
+        // ★ DEBUG: Safari開発時のみログ出力（本番ではコメントアウト）
+        // console.log('[Safari] Canvas context reset at frame', safariFrameCount);
+      }
       
       // ★★★ 長時間動作最適化: フレーム共通値の事前計算 ★★★
       const frameTime = Date.now(); // 1回だけ取得
@@ -1611,6 +1928,7 @@ function initApp() {
       drawAltitudeGrid();
       drawMeridian();
       drawEquator();
+      drawLunarOrbit3D();  // 白道描画（黄道と赤道の間）
       drawEcliptic();
       drawEclipticBand();
       drawZodiacDivisions();
@@ -1624,6 +1942,20 @@ function initApp() {
       drawSun();
       drawMoon();
       drawPlanets();
+      
+      // ★★★ 恒星名の描画（最後に追加） ★★★
+      if (typeof drawStarNames === 'function') {
+        drawStarNames(
+          ctx, 
+          angle, 
+          latitude, 
+          starNamesVisible, 
+          applyDepthShading,
+          toHorizontal,
+          applyAllRotations,
+          project
+        );
+      }
       
       // ★★★ デバッグ情報更新 ★★★
       // ★ MODIFIED (Phase 1): Store debug values instead of updating DOM directly
