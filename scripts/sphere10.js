@@ -189,6 +189,13 @@ function initApp() {
       }
     });
 
+    // ★★★ Phase 2 - Layer 3: 恒星の3D座標キャッシュ ★★★
+    let starsCache = {
+      coords: null,        // 3D座標配列 [{x, y, z}, ...]
+      lastAngle: null,     // 最後のLST角度
+      lastLatitude: null   // 最後の緯度
+    };
+
     // ★★★ 設定値記憶機能 ★★★
     function saveSettings() {
       try {
@@ -583,6 +590,7 @@ function initApp() {
       latitude = newLat;
       latitudeInput.value = latitude.toFixed(1);
       updateAllPositions();
+      requestRender(); // ★★★ Phase 2 - Layer 3: 緯度変更時にレンダリングを強制 ★★★
       saveSettings();
     });
 
@@ -1084,20 +1092,32 @@ function initApp() {
       return degrees + minutes / 60 + seconds / 3600;
     }
 
-    // ★★★ 最適化された恒星描画 - バッチ処理 ★★★
+    // ★★★ 最適化された恒星描画 - バッチ処理 + 3D座標キャッシュ (Phase 2 - Layer 3) ★★★
     function drawStars() {
       if (!starsVisible) return;
       
       const drawStart = debugMode ? performance.now() : 0; 
       
+      // ★★★ Phase 2 - Layer 3: LST角度または緯度が変化した場合のみ3D座標を再計算 ★★★
+      if (starsCache.lastAngle !== angle || starsCache.lastLatitude !== latitude || starsCache.coords === null) {
+        starsCache.coords = starsData.map(star => {
+          const ra = star.RAdeg * Math.PI / 180;
+          const dec = star.Decdeg * Math.PI / 180;
+          const { x, y, z } = toHorizontal(ra, dec, angle);
+          return { x, y, z };
+        });
+        starsCache.lastAngle = angle;
+        starsCache.lastLatitude = latitude;
+      }
+      
       // 星を色とサイズでグループ化してバッチ描画
       // ★ MODIFIED: 奥行き暗化対応（αもグループ化のキーに含める）
       const starGroups = new Map();
       
-      for (const star of starsData) {
-        const ra = star.RAdeg * Math.PI / 180;
-        const dec = star.Decdeg * Math.PI / 180;
-        let { x, y, z } = toHorizontal(ra, dec, angle);
+      for (let i = 0; i < starsData.length; i++) {
+        const star = starsData[i];
+        // ★★★ Phase 2 - Layer 3: キャッシュされた3D座標を使用 ★★★
+        let { x, y, z } = starsCache.coords[i];
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         
