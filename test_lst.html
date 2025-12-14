@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LST Test</title>
+  <script src="./scripts/astronomy.browser.min.js"></script>
+</head>
+<body>
+  <h1>LST Calculation Test</h1>
+  <div id="output"></div>
+  
+  <script>
+    const output = document.getElementById('output');
+    
+    // Test LST calculation
+    const currentDate = new Date();
+    const latitude = 35.4437;
+    const longitude = 139.6503;
+    
+    output.innerHTML += '<p>Current Date: ' + currentDate + '</p>';
+    output.innerHTML += '<p>Latitude: ' + latitude + '</p>';
+    output.innerHTML += '<p>Longitude: ' + longitude + '</p>';
+    
+    try {
+      const time = Astronomy.MakeTime(currentDate);
+      output.innerHTML += '<p>Astronomy time created: ' + time.toString() + '</p>';
+      
+      const gast = Astronomy.SiderealTime(time);
+      output.innerHTML += '<p>GAST: ' + gast.toFixed(2) + '°</p>';
+      
+      const lst = gast + longitude;
+      output.innerHTML += '<p>LST: ' + lst.toFixed(2) + '°</p>';
+      
+      const celestialAngle = (lst * Math.PI / 180) % (2 * Math.PI);
+      output.innerHTML += '<p>Celestial Angle: ' + (celestialAngle * 180 / Math.PI).toFixed(2) + '° (' + celestialAngle.toFixed(4) + ' radians)</p>';
+      
+      console.log('[LST Test] GAST:', gast, 'LST:', lst, 'celestialAngle:', celestialAngle);
+    } catch (error) {
+      output.innerHTML += '<p style="color:red;">Error: ' + error.message + '</p>';
+      console.error('[LST Test] Error:', error);
+    }
+  </script>
+</body>
+</html>
