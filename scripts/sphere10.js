@@ -1610,32 +1610,28 @@ function initApp() {
       if (!primeVerticalVisible) return;
       
       // 卯酉線は東西（方位角90°/270°）を通る大円
-      // 東側の半円: Az = 90°（東）
+      // 単一の呼び出しで完全な円を描画（二重描画を回避）
       drawGreatCircle(
         (t) => {
-          const azimuth = Math.PI / 2;      // 90°（東）
-          const altitude = t - Math.PI / 2; // -π/2 〜 π/2
+          let azimuth, altitude;
+          
+          if (t <= Math.PI) {
+            // 前半: 東側の半円（天底 → 東 → 天頂）
+            azimuth = Math.PI / 2;       // 90°（東）
+            altitude = t - Math.PI / 2;  // -π/2 〜 π/2
+          } else {
+            // 後半: 西側の半円（天頂 → 西 → 天底）
+            azimuth = 3 * Math.PI / 2;         // 270°（西）
+            altitude = 3 * Math.PI / 2 - t;    // π/2 〜 -π/2
+          }
+          
           const { ra, dec } = toEquatorial(azimuth, altitude, angle);
           return { ra, dec };
         },
         CONSTANTS.COLORS.MERIDIAN,
         CONSTANTS.GREAT_CIRCLE_LINE_WIDTH,
         false,
-        180
-      );
-      
-      // 西側の半円: Az = 270°（西）
-      drawGreatCircle(
-        (t) => {
-          const azimuth = 3 * Math.PI / 2;  // 270°（西）
-          const altitude = t - Math.PI / 2; // -π/2 〜 π/2
-          const { ra, dec } = toEquatorial(azimuth, altitude, angle);
-          return { ra, dec };
-        },
-        CONSTANTS.COLORS.MERIDIAN,
-        CONSTANTS.GREAT_CIRCLE_LINE_WIDTH,
-        false,
-        180
+        360  // 完全な円（steps = 360）
       );
     }
 
