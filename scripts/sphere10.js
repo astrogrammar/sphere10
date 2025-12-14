@@ -1610,12 +1610,12 @@ function initApp() {
       if (!primeVerticalVisible) return;
       
       // 卯酉線は子午線（RA=LST）に直交する大円
-      // 東側の半円: RA = LST + 90°
+      // 東側の半円: RA = LST + π/2
       drawGreatCircle(
         (t) => {
-          let ra = angle + 90;
-          while (ra >= 360) ra -= 360;
-          const dec = (t - 0.5) * 180; // -90° 〜 +90°
+          let ra = angle + Math.PI / 2;
+          while (ra >= 2 * Math.PI) ra -= 2 * Math.PI;
+          const dec = t - Math.PI / 2; // -π/2 〜 π/2
           return { ra, dec };
         },
         CONSTANTS.COLORS.MERIDIAN,
@@ -1624,12 +1624,12 @@ function initApp() {
         180
       );
       
-      // 西側の半円: RA = LST - 90°
+      // 西側の半円: RA = LST - π/2
       drawGreatCircle(
         (t) => {
-          let ra = angle - 90;
-          while (ra < 0) ra += 360;
-          const dec = (t - 0.5) * 180; // -90° 〜 +90°
+          let ra = angle - Math.PI / 2;
+          while (ra < 0) ra += 2 * Math.PI;
+          const dec = t - Math.PI / 2; // -π/2 〜 π/2
           return { ra, dec };
         },
         CONSTANTS.COLORS.MERIDIAN,
