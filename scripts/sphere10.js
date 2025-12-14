@@ -1609,13 +1609,13 @@ function initApp() {
     function drawPrimeVertical() {
       if (!primeVerticalVisible) return;
       
-      // 卯酉線は子午線（RA=LST）に直交する大円
-      // 東側の半円: RA = LST + π/2
+      // 卯酉線は東西（方位角90°/270°）を通る大円
+      // 東側の半円: Az = 90°（東）
       drawGreatCircle(
         (t) => {
-          let ra = angle + Math.PI / 2;
-          while (ra >= 2 * Math.PI) ra -= 2 * Math.PI;
-          const dec = t - Math.PI / 2; // -π/2 〜 π/2
+          const azimuth = Math.PI / 2;      // 90°（東）
+          const altitude = t - Math.PI / 2; // -π/2 〜 π/2
+          const { ra, dec } = toEquatorial(azimuth, altitude, angle);
           return { ra, dec };
         },
         CONSTANTS.COLORS.MERIDIAN,
@@ -1624,12 +1624,12 @@ function initApp() {
         180
       );
       
-      // 西側の半円: RA = LST - π/2
+      // 西側の半円: Az = 270°（西）
       drawGreatCircle(
         (t) => {
-          let ra = angle - Math.PI / 2;
-          while (ra < 0) ra += 2 * Math.PI;
-          const dec = t - Math.PI / 2; // -π/2 〜 π/2
+          const azimuth = 3 * Math.PI / 2;  // 270°（西）
+          const altitude = t - Math.PI / 2; // -π/2 〜 π/2
+          const { ra, dec } = toEquatorial(azimuth, altitude, angle);
           return { ra, dec };
         },
         CONSTANTS.COLORS.MERIDIAN,
