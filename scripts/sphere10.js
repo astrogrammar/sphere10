@@ -718,7 +718,7 @@ function initApp() {
       if (newLat > 89.9999) newLat = 89.9999;
       if (newLat < -89.9999) newLat = -89.9999;
       latitude = newLat;
-      latitudeInput.value = latitude.toFixed(1);
+      latitudeInput.value = latitude.toFixed(4);
       updateAllPositions();
       saveSettings();
     });
