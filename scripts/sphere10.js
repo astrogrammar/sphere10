@@ -987,9 +987,9 @@ function initApp() {
         ha = 0;
       } else {
         const cosHA = (Math.sin(altitude) - Math.sin(latRad) * Math.sin(dec)) / (Math.cos(latRad) * cosDec);
-        const clampedCosHA = Math.max(-1, Math.min(1, cosHA));
-        ha = Math.acos(clampedCosHA);
-        if (Math.sin(azimuth) > 0) ha = 2 * Math.PI - ha;
+        const sinHA = -Math.sin(azimuth) * Math.cos(altitude) / cosDec;
+        ha = Math.atan2(sinHA, cosHA);
+        if (ha < 0) ha += 2 * Math.PI;
       }
       
       // 赤経を計算
