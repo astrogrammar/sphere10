@@ -548,14 +548,27 @@ function initApp() {
     if (zenithNadirToggle) zenithNadirToggle.checked = showZenithNadir;
     if (directionToggle) directionToggle.checked = directionVisible;
 
-    datetimeInput.addEventListener('change', () => {
+    // ★★★ 日時変更ハンドラー（changeとinputの両方を監視） ★★★
+    const handleDateTimeChange = () => {
+      console.log('[sphere10.js] 日時変更イベント発火:', datetimeInput.value);
       const userDate = new Date(datetimeInput.value);
       if (!isNaN(userDate)) {
         currentDate = userDate;
-        updateAllPositions();
-        requestRender(); 
+        console.log('[sphere10.js] currentDate更新:', currentDate);
+        try {
+          updateAllPositions();
+          requestRender();
+          console.log('[sphere10.js] 天球表示を更新しました');
+        } catch (error) {
+          console.error('[sphere10.js] updateAllPositions()エラー:', error);
+        }
+      } else {
+        console.warn('[sphere10.js] 無効な日時:', datetimeInput.value);
       }
-    });
+    };
+    
+    datetimeInput.addEventListener('change', handleDateTimeChange);
+    datetimeInput.addEventListener('input', handleDateTimeChange);
 
     // ★★★ Nominatim API統合と地名検索機能 ★★★
     const placeInput = document.getElementById("placeInput");
@@ -1052,6 +1065,7 @@ function initApp() {
     ];
 
     async function updateAllPositions() {
+      console.log('[sphere10.js] updateAllPositions() 実行開始 - currentDate:', currentDate, 'latitude:', latitude, 'longitude:', longitude);
       const time = Astronomy.MakeTime(currentDate);
       // ★★★ Set absolute Julian Date for lunar orbit calculation
       // time.ut is days since J2000, so add J2000 epoch to get absolute JD
