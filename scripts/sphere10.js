@@ -199,6 +199,7 @@ function initApp() {
           rotationEW: rotationEW,
           horizonVisible: horizonVisible,
           meridianVisible: meridianVisible,
+          primeVerticalVisible: primeVerticalVisible,
           equatorVisible: equatorVisible,
           eclipticVisible: eclipticVisible,
           eclipticBandVisible: eclipticBandVisible,
@@ -236,6 +237,7 @@ function initApp() {
           rotationEW = settings.rotationEW ?? 0;
           horizonVisible = settings.horizonVisible ?? true;
           meridianVisible = settings.meridianVisible ?? true;
+          primeVerticalVisible = settings.primeVerticalVisible ?? true;
           equatorVisible = settings.equatorVisible ?? true;
           eclipticVisible = settings.eclipticVisible ?? true;
           eclipticBandVisible = settings.eclipticBandVisible ?? true;
@@ -439,6 +441,7 @@ function initApp() {
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
     const meridianToggle = document.getElementById('meridianToggle');
+    const primeVerticalToggle = document.getElementById('primeVerticalToggle');
     const equatorToggle = document.getElementById('equatorToggle');
     const eclipticToggle = document.getElementById('eclipticToggle');
     const eclipticBandToggle = document.getElementById('eclipticBandToggle');
@@ -448,6 +451,7 @@ function initApp() {
     const zenithNadirToggle = document.getElementById('zenithNadirToggle');
     let horizonVisible = horizonToggle.checked;
     let meridianVisible = meridianToggle.checked;
+    let primeVerticalVisible = primeVerticalToggle.checked;
     let equatorVisible = equatorToggle.checked;
     let eclipticVisible = eclipticToggle.checked;
     let eclipticBandVisible = eclipticBandToggle.checked;
@@ -473,6 +477,7 @@ function initApp() {
     });
     horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    primeVerticalToggle.addEventListener('change', () => { primeVerticalVisible = primeVerticalToggle.checked; saveSettings(); requestRender(); }); // ★ ADDED
     equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
@@ -523,6 +528,7 @@ function initApp() {
     // チェックボックスの状態を復元
     if (horizonToggle) horizonToggle.checked = horizonVisible;
     if (meridianToggle) meridianToggle.checked = meridianVisible;
+    if (primeVerticalToggle) primeVerticalToggle.checked = primeVerticalVisible;
     if (equatorToggle) equatorToggle.checked = equatorVisible;
     if (eclipticToggle) eclipticToggle.checked = eclipticVisible;
     if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
@@ -963,6 +969,35 @@ function initApp() {
       // ★ END ADDED
       // ========================================
       requestRender();
+    }
+
+    // 地平座標（方位角、高度）から赤道座標（赤経、赤緯）への変換
+    function toEquatorial(azimuth, altitude, lst) {
+      const latRad = latitude * Math.PI / 180;
+      
+      // 赤緯を計算
+      const sinDec = Math.sin(altitude) * Math.sin(latRad) + Math.cos(altitude) * Math.cos(latRad) * Math.cos(azimuth);
+      const dec = Math.asin(sinDec);
+      
+      // 時角を計算
+      const cosDec = Math.cos(dec);
+      let ha;
+      if (Math.abs(cosDec) < CONSTANTS.ZENITH_NADIR_THRESHOLD) {
+        // 天頂または天底: 時角は不定
+        ha = 0;
+      } else {
+        const cosHA = (Math.sin(altitude) - Math.sin(latRad) * Math.sin(dec)) / (Math.cos(latRad) * cosDec);
+        const clampedCosHA = Math.max(-1, Math.min(1, cosHA));
+        ha = Math.acos(clampedCosHA);
+        if (Math.sin(azimuth) > 0) ha = 2 * Math.PI - ha;
+      }
+      
+      // 赤経を計算
+      let ra = lst - ha;
+      // 赤経を0〜2πの範囲に正規化
+      ra = ((ra % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      
+      return { ra, dec };
     }
 
     function toHorizontal(ra, dec, lst) {
@@ -1571,6 +1606,25 @@ function initApp() {
       ); // false＝実線, steps=180で半周（子午線は半周で完結）
     }
 
+    function drawPrimeVertical() {
+      if (!primeVerticalVisible) return;
+      drawGreatCircle(
+        (t) => {
+          // 地平座標: 方位角90°（東）、高度 -90° 〜 +90°
+          const altitude = t - Math.PI / 2; // -π/2 〜 π/2
+          const azimuth = Math.PI / 2; // 90° (東)
+          
+          // 地平座標から赤道座標に変換
+          const { ra, dec } = toEquatorial(azimuth, altitude, angle);
+          return { ra, dec };
+        },
+        CONSTANTS.COLORS.MERIDIAN, // 子午線と同じ色
+        CONSTANTS.GREAT_CIRCLE_LINE_WIDTH,
+        false,
+        180 // 半周
+      );
+    }
+
     function drawEquator() {
       if (!equatorVisible) return; 
       drawGreatCircle((t) => ({ ra: t, dec: 0 }), CONSTANTS.COLORS.EQUATOR, CONSTANTS.GREAT_CIRCLE_LINE_WIDTH, false); // false＝実線
@@ -1927,6 +1981,7 @@ function initApp() {
       drawHorizon();
       drawAltitudeGrid();
       drawMeridian();
+      drawPrimeVertical();
       drawEquator();
       drawLunarOrbit3D();  // 白道描画（黄道と赤道の間）
       drawEcliptic();
