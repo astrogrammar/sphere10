@@ -35,6 +35,15 @@ const CONSTANTS = {
   }
 };
 
+// ★★★ グローバル変数 ★★★
+let currentDate = new Date();
+let latitude = 35.4437;
+let longitude = 139.6380;
+
+// ★★★ グローバル関数 ★★★
+let updateAllPositions = null;  // initApp内で定義される
+let requestRender = null;       // initApp内で定義される
+
 // ★★★ 初期化関数 ★★★
 function initApp() {
     // ★★★ 恒星名表示機能の初期化 ★★★
@@ -170,9 +179,7 @@ function initApp() {
     // ★ ADDED (Phase 1): Debug values for throttled DOM updates
     let debugValues = {}; 
 
-    let currentDate = new Date();
-    let latitude = 35.4437;
-    let longitude = 139.6380;
+    // currentDate, latitude, longitudeはグローバルスコープに移動済み
     let savedLocations = []; // ★★★ 保存された場所リスト ★★★
     let showAltGrid = true;
     let showZenithNadir = true;
@@ -1071,7 +1078,7 @@ function initApp() {
       { name: "♇ Pluto",   body: Astronomy.Body.Pluto,   color: "#aaaaaa", RA: 0, Dec: 0 }
     ];
 
-    async function updateAllPositions() {
+    updateAllPositions = async function() {
       console.log('[sphere10.js] updateAllPositions() 実行開始 - currentDate:', currentDate, 'latitude:', latitude, 'longitude:', longitude);
       const time = Astronomy.MakeTime(currentDate);
       // ★★★ Set absolute Julian Date for lunar orbit calculation
@@ -2097,11 +2104,11 @@ function initApp() {
     let staticElementsCache = null;
     
     // ★ ADDED (Phase 1): Request render function for dirty rendering
-    function requestRender() {
+    requestRender = function() {
       if (rafId === null) {
         rafId = requestAnimationFrame(renderFrame);
       }
-    }
+    };
     
     // ★ ADDED: requestRenderをwindowオブジェクトに公開（chart.jsからアクセスするため）
     window.requestRender = requestRender;
