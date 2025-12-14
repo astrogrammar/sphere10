@@ -171,8 +171,9 @@ function initApp() {
     let debugValues = {}; 
 
     let currentDate = new Date();
-    let latitude = 35.4333;
-    let longitude = 139.65;
+    let latitude = 35.4437;
+    let longitude = 139.6380;
+    let savedLocations = []; // ★★★ 保存された場所リスト ★★★
     let showAltGrid = true;
     let showZenithNadir = true;
     
@@ -194,6 +195,8 @@ function initApp() {
       try {
         const settings = {
           latitude: latitude,
+          longitude: longitude,
+          savedLocations: savedLocations,
           rotationZ: rotationZ,
           rotationY: rotationY,
           rotationEW: rotationEW,
@@ -231,7 +234,9 @@ function initApp() {
           const settings = JSON.parse(saved);
           let usedLegacyZenithNadir = false;
           // 各値を復元（デフォルト値をフォールバック）
-          latitude = settings.latitude ?? 35.4333;
+          latitude = settings.latitude ?? 35.4437;
+          longitude = settings.longitude ?? 139.6380;
+          savedLocations = settings.savedLocations ?? [];
           rotationZ = settings.rotationZ ?? 0;
           rotationY = settings.rotationY ?? 0;
           rotationEW = settings.rotationEW ?? 0;
@@ -552,37 +557,163 @@ function initApp() {
       }
     });
 
-    setLocationButton.addEventListener('click', async () => {
-      const city = locationInput.value.trim();
-      if (city) {
-        try {
-          const response = await fetch('./data/location.json');
-          if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
-          const locData = await response.json();
-          if (locData[city]) {
-            latitude = locData[city].latitude;
-            longitude = locData[city].longitude;
-            // 緯度入力フィールドも同期更新
-            const latitudeInput = document.getElementById("latitudeInput");
-            if (latitudeInput) {
-              latitudeInput.value = latitude.toFixed(1);
-            }
-            updateAllPositions();
-          } else {
-            console.error("指定された都市がlocation.jsonにありません");
-          }
-        } catch (e) {
-          console.error("location.json取得エラー:", e);
+    // ★★★ Nominatim API統合と地名検索機能 ★★★
+    const placeInput = document.getElementById("placeInput");
+    const searchPlaceButton = document.getElementById("searchPlaceButton");
+    
+    let lastSearchTime = 0;
+    const SEARCH_RATE_LIMIT = 1000; // 1秒に1リクエスト
+    
+    // フォールバック用ローカルJSONから検索
+    async function searchLocalLocation(placeName) {
+      try {
+        const response = await fetch('./data/location.json');
+        if (!response.ok) return null;
+        const locData = await response.json();
+        if (locData[placeName]) {
+          return {
+            lat: locData[placeName].latitude,
+            lon: locData[placeName].longitude,
+            display_name: placeName
+          };
         }
+      } catch (e) {
+        console.warn('location.jsonからの検索に失敗しました:', e);
+      }
+      return null;
+    }
+    
+    // Nominatim APIで検索
+    async function searchNominatim(placeName) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(placeName)}&format=json&limit=1`;
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Sphere10 Celestial Sphere App (astrogrammar.com)'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.length > 0) {
+          return {
+            lat: parseFloat(data[0].lat),
+            lon: parseFloat(data[0].lon),
+            display_name: data[0].display_name
+          };
+        }
+      } catch (error) {
+        console.error('Nominatim検索エラー:', error);
+      }
+      return null;
+    }
+    
+    searchPlaceButton.addEventListener('click', async () => {
+      const placeName = placeInput.value.trim();
+      if (!placeName) return;
+      
+      // レート制限
+      const now = Date.now();
+      const timeSinceLastSearch = now - lastSearchTime;
+      if (timeSinceLastSearch < SEARCH_RATE_LIMIT) {
+        alert(`検索は1秒に1回までです。あと${Math.ceil((SEARCH_RATE_LIMIT - timeSinceLastSearch) / 1000)}秒お待ちください。`);
+        return;
+      }
+      lastSearchTime = now;
+      
+      // まずローカルJSONで検索
+      let result = await searchLocalLocation(placeName);
+      
+      // ローカルになければNominatimで検索
+      if (!result) {
+        result = await searchNominatim(placeName);
+      }
+      
+      if (result) {
+        latitude = result.lat;
+        longitude = result.lon;
+        
+        // UI更新
+        latitudeInput.value = latitude.toFixed(4);
+        longitudeInput.value = longitude.toFixed(4);
+        
+        // 天球更新
+        updateAllPositions();
+        saveSettings();
+        
+        // ★★★ 保存された場所リストに追加 ★★★
+        const locationName = placeName;
+        const existingIndex = savedLocations.findIndex(loc => loc.name === locationName);
+        if (existingIndex === -1) {
+          // 新規追加
+          savedLocations.push({
+            name: locationName,
+            lat: latitude,
+            lon: longitude
+          });
+          // 最大10件まで保存
+          if (savedLocations.length > 10) {
+            savedLocations.shift();
+          }
+          saveSettings();
+          renderSavedLocations();
+        }
+        
+        alert(`場所を設定しました: ${result.display_name}`);
+      } else {
+        alert(`「${placeName}」が見つかりませんでした。`);
       }
     });
+    
+    // ★★★ 保存された場所リストの描画 ★★★
+    function renderSavedLocations() {
+      const savedLocationsList = document.getElementById('savedLocationsList');
+      if (!savedLocationsList) return;
+      
+      savedLocationsList.innerHTML = '';
+      
+      savedLocations.forEach((loc, index) => {
+        const btn = document.createElement('button');
+        btn.textContent = loc.name;
+        btn.style.cssText = 'padding: 3px 8px; font-size: 0.85em; cursor: pointer; background: #444; color: #fff; border: 1px solid #666; border-radius: 3px;';
+        btn.addEventListener('click', () => {
+          latitude = loc.lat;
+          longitude = loc.lon;
+          latitudeInput.value = latitude.toFixed(4);
+          longitudeInput.value = longitude.toFixed(4);
+          updateAllPositions();
+          saveSettings();
+        });
+        
+        // 削除ボタン
+        const deleteBtn = document.createElement('span');
+        deleteBtn.textContent = '×';
+        deleteBtn.style.cssText = 'margin-left: 5px; cursor: pointer; color: #f88;';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          savedLocations.splice(index, 1);
+          saveSettings();
+          renderSavedLocations();
+        });
+        
+        btn.appendChild(deleteBtn);
+        savedLocationsList.appendChild(btn);
+      });
+    }
+    
+    // 初期表示
+    renderSavedLocations();
 
     // ★★★ 緯度調節機能 ★★★
     const latitudeInput = document.getElementById("latitudeInput");
     latitudeInput.addEventListener("change", () => {
       let newLat = parseFloat(latitudeInput.value);
       if (isNaN(newLat)) {
-        newLat = 35.4; // デフォルト値に戻す
+        newLat = 35.4437; // デフォルト値に戻す
       }
       if (newLat > 89.9999) newLat = 89.9999;
       if (newLat < -89.9999) newLat = -89.9999;
@@ -593,7 +724,25 @@ function initApp() {
     });
 
     // 初期値の設定
-    latitudeInput.value = latitude.toFixed(1);
+    latitudeInput.value = latitude.toFixed(4);
+
+    // ★★★ 経度調節機能 ★★★
+    const longitudeInput = document.getElementById("longitudeInput");
+    longitudeInput.addEventListener("change", () => {
+      let newLon = parseFloat(longitudeInput.value);
+      if (isNaN(newLon)) {
+        newLon = 139.6380; // デフォルト値に戻す
+      }
+      if (newLon > 180) newLon = 180;
+      if (newLon < -180) newLon = -180;
+      longitude = newLon;
+      longitudeInput.value = longitude.toFixed(4);
+      updateAllPositions();
+      saveSettings();
+    });
+
+    // 初期値の設定
+    longitudeInput.value = longitude.toFixed(4);
 
     rotationZSlider.addEventListener('input', () => {
       rotationZ = rotationZSlider.value * Math.PI / 180;
