@@ -549,26 +549,33 @@ function initApp() {
     if (directionToggle) directionToggle.checked = directionVisible;
 
     // ★★★ 日時変更ハンドラー（changeとinputの両方を監視） ★★★
-    const handleDateTimeChange = () => {
-      console.log('[sphere10.js] 日時変更イベント発火:', datetimeInput.value);
-      const userDate = new Date(datetimeInput.value);
-      if (!isNaN(userDate)) {
-        currentDate = userDate;
-        console.log('[sphere10.js] currentDate更新:', currentDate);
-        try {
-          updateAllPositions();
-          requestRender();
-          console.log('[sphere10.js] 天球表示を更新しました');
-        } catch (error) {
-          console.error('[sphere10.js] updateAllPositions()エラー:', error);
+    if (datetimeInput) {
+      const handleDateTimeChange = () => {
+        console.log('[DEBUG] 日時変更イベント発火:', datetimeInput.value);
+        const userDate = new Date(datetimeInput.value);
+        if (!isNaN(userDate)) {
+          currentDate = userDate;
+          console.log('[DEBUG] currentDate更新:', currentDate);
+          console.log('[DEBUG] updateAllPositions()を呼び出します');
+          try {
+            updateAllPositions();
+            console.log('[DEBUG] requestRender()を呼び出します');
+            requestRender();
+            console.log('[SUCCESS] 天球表示を更新しました');
+          } catch (error) {
+            console.error('[ERROR] updateAllPositions()エラー:', error);
+          }
+        } else {
+          console.warn('[WARN] 無効な日時:', datetimeInput.value);
         }
-      } else {
-        console.warn('[sphere10.js] 無効な日時:', datetimeInput.value);
-      }
-    };
-    
-    datetimeInput.addEventListener('change', handleDateTimeChange);
-    datetimeInput.addEventListener('input', handleDateTimeChange);
+      };
+      
+      datetimeInput.addEventListener('change', handleDateTimeChange);
+      datetimeInput.addEventListener('input', handleDateTimeChange);
+      console.log('[INFO] 日時変更イベントリスナーを登録しました');
+    } else {
+      console.error('[ERROR] datetimeInput要素が見つかりません');
+    }
 
     // ★★★ Nominatim API統合と地名検索機能 ★★★
     const placeInput = document.getElementById("placeInput");
