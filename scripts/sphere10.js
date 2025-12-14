@@ -40,6 +40,12 @@ let currentDate = new Date();
 let latitude = 35.4437;
 let longitude = 139.6380;
 
+// ★★★ 天体位置変数 ★★★
+let sunRA = 0;
+let sunDec = 0;
+let moonRA = 0;
+let moonDec = 0;
+
 // ★★★ グローバル関数 ★★★
 let updateAllPositions = null;  // initApp内で定義される
 let requestRender = null;       // initApp内で定義される
@@ -1062,10 +1068,7 @@ function initApp() {
     // ★★★ FIX: リロード時にSTOPボタンを選択状態にする ★★★
     setActiveButton(pauseButton);
 
-    let sunRA = 0;  
-    let sunDec = 0; 
-    let moonRA = 0; 
-    let moonDec = 0; 
+    // sunRA, sunDec, moonRA, moonDecはグローバルスコープに移動済み 
 
     const planetData = [
       { name: "  ☿ Mercury", body: Astronomy.Body.Mercury, color: "#cccccc", RA: 0, Dec: 0 },
