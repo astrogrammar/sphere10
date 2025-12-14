@@ -50,6 +50,9 @@ let moonDec = 0;
 let updateAllPositions = null;  // initApp内で定義される
 let requestRender = null;       // initApp内で定義される
 
+// ★★★ LST（地方恒星時）による天球回転制御 ★★★
+let celestialAngle = 0;  // 天球回転角度（ラジアン）
+
 // ★★★ 初期化関数 ★★★
 function initApp() {
     // ★★★ 恒星名表示機能の初期化 ★★★
@@ -165,7 +168,8 @@ function initApp() {
     const rotationYVal = document.getElementById('rotationYVal');
     const rotationEWVal = document.getElementById('rotationEWVal');
 
-    let angle = 0; 
+    // ★★★ LST制御: ローカル変数angleを削除し、グローバルcelestialAngleを使用 ★★★
+    // let celestialAngle = 0; // ← 削除：グローバルcelestialAngleを使用
     // ★ MODIFIED (Phase 1): Default to pause for better initial performance
     let isPlaying = false;
     let playbackSpeed = 1;
@@ -1148,6 +1152,24 @@ function initApp() {
       // ========================================
       // ★ END ADDED
       // ========================================
+
+      // ========================================
+      // ★★★ LST（地方恒星時）計算と天球回転角度の更新 ★★★
+      // ========================================
+      // GAST（グリニッジ視恒星時）を度単位で取得
+      const gast = Astronomy.SiderealTime(time); // degrees (0-360)
+      
+      // LST = GAST + 経度（東が正）
+      const lst = gast + longitude; // degrees
+      
+      // 天球回転角度をラジアンに変換して更新
+      celestialAngle = (lst * Math.PI / 180) % (2 * Math.PI);
+      
+      console.log('[LST] GAST:', gast.toFixed(2), '°, LST:', lst.toFixed(2), '°, celestialAngle:', (celestialAngle * 180 / Math.PI).toFixed(2), '°');
+      // ========================================
+      // ★★★ END LST CALCULATION ★★★
+      // ========================================
+
       requestRender();
     }
 
@@ -1312,7 +1334,7 @@ function initApp() {
       for (const star of starsData) {
         const ra = star.RAdeg * Math.PI / 180;
         const dec = star.Decdeg * Math.PI / 180;
-        let { x, y, z } = toHorizontal(ra, dec, angle);
+        let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         
@@ -1358,7 +1380,7 @@ function initApp() {
     function drawSun() {
       const sunRA_rad = (sunRA * 15) * Math.PI / 180;
       const sunDec_rad = sunDec * Math.PI / 180;
-      let { x, y, z } = toHorizontal(sunRA_rad, sunDec_rad, angle);
+      let { x, y, z } = toHorizontal(sunRA_rad, sunDec_rad, celestialAngle);
       ({ x, y, z } = applyAllRotations(x, y, z));
       const p = project(x, y, z);
       if (p) {
@@ -1388,7 +1410,7 @@ function initApp() {
     function drawMoon() {
       const moonRA_rad = (moonRA * 15) * Math.PI / 180;
       const moonDec_rad = moonDec * Math.PI / 180;
-      let { x, y, z } = toHorizontal(moonRA_rad, moonDec_rad, angle);
+      let { x, y, z } = toHorizontal(moonRA_rad, moonDec_rad, celestialAngle);
       ({ x, y, z } = applyAllRotations(x, y, z));
       const p = project(x, y, z);
       if (p) {
@@ -1422,7 +1444,7 @@ function initApp() {
       const currentRA = planetData.map(p => p.RA);
       const currentDec = planetData.map(p => p.Dec);
       
-      const angleChanged = planetLabelCache.lastAngle !== angle;
+      const angleChanged = planetLabelCache.lastAngle !== celestialAngle;
       const latitudeChanged = planetLabelCache.lastLatitude !== latitude;
       const planetPositionChanged = 
         !planetLabelCache.lastRA || 
@@ -1434,9 +1456,9 @@ function initApp() {
         planetLabelCache.coords = planetData.map(pData => {
           const raRad = (pData.RA * 15) * Math.PI / 180;
           const decRad = pData.Dec * Math.PI / 180;
-          return toHorizontal(raRad, decRad, angle);
+          return toHorizontal(raRad, decRad, celestialAngle);
         });
-        planetLabelCache.lastAngle = angle;
+        planetLabelCache.lastAngle = celestialAngle;
         planetLabelCache.lastLatitude = latitude;
         planetLabelCache.lastRA = currentRA;
         planetLabelCache.lastDec = currentDec;
@@ -1562,7 +1584,7 @@ function initApp() {
         ctx.beginPath();
         let started = false;
         for (const p of points) {
-          let { x, y, z } = toHorizontal(p.ra, p.dec, angle);
+          let { x, y, z } = toHorizontal(p.ra, p.dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const pr = project(x, y, z);
           if (pr) {
@@ -1584,7 +1606,7 @@ function initApp() {
         // 奥行き暗化あり：セグメント分割
         const projectedPoints = [];
         for (const p of points) {
-          let { x, y, z } = toHorizontal(p.ra, p.dec, angle);
+          let { x, y, z } = toHorizontal(p.ra, p.dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const pr = project(x, y, z);
           if (pr) {
@@ -1687,7 +1709,7 @@ function initApp() {
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
           const { ra, dec } = raDecFunc(t);
-          let { x, y, z } = toHorizontal(ra, dec, angle);
+          let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           if (p) {
@@ -1715,7 +1737,7 @@ function initApp() {
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
           const { ra, dec } = raDecFunc(t);
-          let { x, y, z } = toHorizontal(ra, dec, angle);
+          let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           
@@ -1776,7 +1798,7 @@ function initApp() {
       drawGreatCircle(
         (t) => {
           const dec = t - Math.PI; 
-          const ra = angle; 
+          const ra = celestialAngle; 
           return { ra, dec };
         },
         CONSTANTS.COLORS.MERIDIAN,
@@ -1805,7 +1827,7 @@ function initApp() {
             altitude = 3 * Math.PI / 2 - t;    // π/2 〜 -π/2
           }
           
-          const { ra, dec } = toEquatorial(azimuth, altitude, angle);
+          const { ra, dec } = toEquatorial(azimuth, altitude, celestialAngle);
           return { ra, dec };
         },
         CONSTANTS.COLORS.MERIDIAN,
@@ -1883,7 +1905,7 @@ function initApp() {
             Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambdaConst) - Math.sin(beta) * Math.sin(epsilon),
             Math.cos(beta) * Math.cos(lambdaConst)
           );
-          let { x, y, z } = toHorizontal(ra, dec, angle);
+          let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           if (p) {
@@ -1926,7 +1948,7 @@ function initApp() {
         const lambda = lambdaDeg * Math.PI / 180;
         const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
         const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
-        let { x, y, z } = toHorizontal(ra, dec, angle);
+        let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         if (p) ctx.fillText(zodiacSymbols[i], p.sx, p.sy);
@@ -1950,7 +1972,7 @@ function initApp() {
         const steps = isRotating ? 25 : 40; // 50 → 25-40 (50-20%削減)
         for (let j = 0; j <= steps; j++) {
           const dec = -Math.PI / 2 + (Math.PI * (j / steps));
-          let { x, y, z } = toHorizontal(RAconst, dec, angle);
+          let { x, y, z } = toHorizontal(RAconst, dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           if (p) {
@@ -1994,7 +2016,7 @@ function initApp() {
         const steps = isRotating ? 24 : 48; // 72 → 24-48 (66-33%削減)
         for (let i = 0; i <= steps; i++) {
           const raRad = (i * 360 / steps) * Math.PI / 180;
-          let { x, y, z } = toHorizontal(raRad, decRad, angle);
+          let { x, y, z } = toHorizontal(raRad, decRad, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           
@@ -2132,7 +2154,8 @@ function initApp() {
       const frameTime = Date.now(); // 1回だけ取得
       
       if (isPlaying) {
-        angle += 0.002 * playbackSpeed;
+        // ★★★ LST制御: celestialAngleの手動更新を無効化（updateAllPositionsでLSTから計算） ★★★
+        // celestialAngle += 0.002 * playbackSpeed; // ← 無効化：LSTから自動計算
         currentDate.setSeconds(currentDate.getSeconds() + playbackSpeed);
         
         // ★ MODIFIED (Phase 1): Throttle ephemeris calculations
@@ -2192,7 +2215,7 @@ function initApp() {
       if (typeof drawStarNames === 'function') {
         drawStarNames(
           ctx, 
-          angle, 
+          celestialAngle, 
           latitude, 
           starNamesVisible, 
           applyDepthShading,
@@ -2204,7 +2227,7 @@ function initApp() {
       
       // ★★★ デバッグ情報更新 ★★★
       // ★ MODIFIED (Phase 1): Store debug values instead of updating DOM directly
-      const lst = (angle * 180 / Math.PI / 15) % 24;
+      const lst = (celestialAngle * 180 / Math.PI / 15) % 24;
       debugValues.lst = lst.toFixed(2);
       debugValues.date = currentDate.toLocaleString();
       // Other debug values...
