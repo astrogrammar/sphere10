@@ -155,7 +155,7 @@ function initApp() {
         requestRender(); 
     });
     
-    console.log("スクリプトが実行されています。");
+
 
     let rotationZ = 0;  
     let rotationY = 0;  
@@ -285,7 +285,7 @@ function initApp() {
               usedLegacyZenithNadir = true;
             }
           }
-          console.log('設定を復元しました');
+
           if (usedLegacyZenithNadir) {
             saveSettings();
           }
@@ -568,30 +568,16 @@ function initApp() {
     // ★★★ 日時変更ハンドラー（changeとinputの両方を監視） ★★★
     if (datetimeInput) {
       const handleDateTimeChange = () => {
-        console.log('[DEBUG] 日時変更イベント発火:', datetimeInput.value);
         const userDate = new Date(datetimeInput.value);
         if (!isNaN(userDate)) {
           currentDate = userDate;
-          console.log('[DEBUG] currentDate更新:', currentDate);
-          console.log('[DEBUG] updateAllPositions()を呼び出します');
-          try {
-            updateAllPositions();
-            console.log('[DEBUG] requestRender()を呼び出します');
-            requestRender();
-            console.log('[SUCCESS] 天球表示を更新しました');
-          } catch (error) {
-            console.error('[ERROR] updateAllPositions()エラー:', error);
-          }
-        } else {
-          console.warn('[WARN] 無効な日時:', datetimeInput.value);
+          updateAllPositions();
+          requestRender();
         }
       };
       
       datetimeInput.addEventListener('change', handleDateTimeChange);
       datetimeInput.addEventListener('input', handleDateTimeChange);
-      console.log('[INFO] 日時変更イベントリスナーを登録しました');
-    } else {
-      console.error('[ERROR] datetimeInput要素が見つかりません');
     }
 
     // ★★★ Nominatim API統合と地名検索機能 ★★★
@@ -1005,13 +991,13 @@ function initApp() {
         
         if (debugMode) {
           createDebugPanel();
-          console.log('🔬 Sphere10 Debug Mode: ON');
+
         } else {
           if (debugPanel) {
             debugPanel.remove();
             debugPanel = null;
           }
-          console.log('🔬 Sphere10 Debug Mode: OFF');
+
         }
       }
     });
@@ -1086,7 +1072,7 @@ function initApp() {
     ];
 
     updateAllPositions = async function() {
-      console.log('[sphere10.js] updateAllPositions() 実行開始 - currentDate:', currentDate, 'latitude:', latitude, 'longitude:', longitude);
+
       const time = Astronomy.MakeTime(currentDate);
       // ★★★ Set absolute Julian Date for lunar orbit calculation
       // time.ut is days since J2000, so add J2000 epoch to get absolute JD
@@ -1298,7 +1284,7 @@ function initApp() {
           if (isNaN(Vmag) || Vmag > 5.5) continue;
           stars.push({ RAhms, DEdms, Vmag });
         }
-        console.log(`Loaded ${stars.length} stars`);
+
         return stars;
       } catch (error) {
         console.error('星表データの読み込み失敗:', error);
