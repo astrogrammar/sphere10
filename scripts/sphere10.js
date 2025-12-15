@@ -1163,9 +1163,14 @@ function initApp() {
       const lst = gast + longitude; // degrees
       
       // 天球回転角度をラジアンに変換して更新
-      celestialAngle = (lst * Math.PI / 180) % (2 * Math.PI);
+      // Apply offset to align the celestial sphere texture
+      // The texture seems to be offset by 180 degrees (PI radians)
+      celestialAngle = (lst * Math.PI / 180) - Math.PI;
       
-      console.log('[LST] GAST:', gast.toFixed(2), '°, LST:', lst.toFixed(2), '°, celestialAngle:', (celestialAngle * 180 / Math.PI).toFixed(2), '°');
+     // Debug: Uncomment to log LST and Sun RA
+      // const sunEqu = Astronomy.Equator(Astronomy.Body.Sun, time, observer, true, true);
+      // console.log("[LST] Sun RA:", (sunEqu.ra / 15).toFixed(2), "h (", sunEqu.ra.toFixed(2), "°)");
+      // console.log("[LST] GAST:", gast.toFixed(2), "°", ", LST:", lst.toFixed(2), "°, celestialAngle:", (celestialAngle * 180 / Math.PI).toFixed(2), "°");
       // ========================================
       // ★★★ END LST CALCULATION ★★★
       // ========================================
