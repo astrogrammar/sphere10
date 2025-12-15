@@ -61,13 +61,7 @@
       <button id="reverseButton">REWIND</button>
     </div>
     
-    <!-- 日付、場所入力有効化 -->
-    <div id="localArea">
-      <h3>場所 Location</h3>
-      <label for="locationInput">都市名 City</label>
-      <input type="text" id="locationInput" value="横浜市">
-      <button id="setLocationButton">場所を設定</button>
-    </div>
+    <!-- 観測地入力セクション（統合版） -->
     
     <!-- 回転セクション -->
     <div class="section">
@@ -107,6 +101,10 @@
         <label>
           <input type="checkbox" id="meridianToggle" checked>
           子午線 Meridian
+        </label>
+        <label>
+          <input type="checkbox" id="primeVerticalToggle" checked>
+          卯酉線 Prime Vertical
         </label>
         <label>
           <input type="checkbox" id="equatorToggle" checked>
@@ -195,7 +193,7 @@
     <!-- 惑星位置セクション -->
     <div class="section">
       <h3 class="section-header" data-section="planets">
-        <span>惑星位置</span>
+        <span>日時 DATE</span>
         <span class="toggle-icon">▼</span>
       </h3>
       <div class="section-content" id="planets-content">
@@ -215,24 +213,48 @@
       </div>
     </div>
     
-    <!-- 位置設定セクション -->
+    <!-- 観測地設定セクション -->
     <div class="section">
-      <h3 class="section-header" data-section="latitude">
-        <span>緯度 LATITUDE</span>
+      <h3 class="section-header" data-section="location">
+        <span>観測地 LOCATION</span>
         <span class="toggle-icon">▼</span>
       </h3>
       <div class="section-content" id="location-content">
-        <!-- 緯度: 数値入力 -->
-        <label for="latitudeInput"> 
-        <input
-          type="number"
-          id="latitudeInput"
-          min="-90"
-          max="90"
-          step="0.1"
-          value="35.4"
-          size="4"
-        /> 緯度 Latitude</label>
+        <!-- 地名検索 -->
+        <label for="placeInput">Place</label>
+        <input type="text" id="placeInput" placeholder="Tokyo, London, Paris...">
+        <button id="searchPlaceButton">検索 Search</button>
+        
+        <!-- 座標入力 -->
+        <label for="latitudeInput">
+          <input
+            type="number"
+            id="latitudeInput"
+            min="-90"
+            max="90"
+            step="0.0001"
+            value="35.4437"
+            size="8"
+          /> Latitude
+        </label>
+        
+        <label for="longitudeInput">
+          <input
+            type="number"
+            id="longitudeInput"
+            min="-180"
+            max="180"
+            step="0.0001"
+            value="139.6380"
+            size="8"
+          /> Longitude
+        </label>
+        
+        <!-- 保存された場所リスト -->
+        <div id="savedLocations" style="margin-top: 10px;">
+          <label style="font-size: 0.9em; color: #aaa;">Saved Locations:</label>
+          <div id="savedLocationsList" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px;"></div>
+        </div>
       </div>
     </div>
     

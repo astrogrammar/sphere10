@@ -35,6 +35,24 @@ const CONSTANTS = {
   }
 };
 
+// ★★★ グローバル変数 ★★★
+let currentDate = new Date();
+let latitude = 35.4437;
+let longitude = 139.6380;
+
+// ★★★ 天体位置変数 ★★★
+let sunRA = 0;
+let sunDec = 0;
+let moonRA = 0;
+let moonDec = 0;
+
+// ★★★ グローバル関数 ★★★
+let updateAllPositions = null;  // initApp内で定義される
+let requestRender = null;       // initApp内で定義される
+
+// ★★★ LST（地方恒星時）による天球回転制御 ★★★
+let celestialAngle = 0;  // 天球回転角度（ラジアン）
+
 // ★★★ 初期化関数 ★★★
 function initApp() {
     // ★★★ 恒星名表示機能の初期化 ★★★
@@ -137,7 +155,7 @@ function initApp() {
         requestRender(); 
     });
     
-    console.log("スクリプトが実行されています。");
+
 
     let rotationZ = 0;  
     let rotationY = 0;  
@@ -150,7 +168,8 @@ function initApp() {
     const rotationYVal = document.getElementById('rotationYVal');
     const rotationEWVal = document.getElementById('rotationEWVal');
 
-    let angle = 0; 
+    // ★★★ LST制御: ローカル変数angleを削除し、グローバルcelestialAngleを使用 ★★★
+    // let celestialAngle = 0; // ← 削除：グローバルcelestialAngleを使用
     // ★ MODIFIED (Phase 1): Default to pause for better initial performance
     let isPlaying = false;
     let playbackSpeed = 1;
@@ -170,9 +189,8 @@ function initApp() {
     // ★ ADDED (Phase 1): Debug values for throttled DOM updates
     let debugValues = {}; 
 
-    let currentDate = new Date();
-    let latitude = 35.4333;
-    let longitude = 139.65;
+    // currentDate, latitude, longitudeはグローバルスコープに移動済み
+    let savedLocations = []; // ★★★ 保存された場所リスト ★★★
     let showAltGrid = true;
     let showZenithNadir = true;
     
@@ -194,11 +212,14 @@ function initApp() {
       try {
         const settings = {
           latitude: latitude,
+          longitude: longitude,
+          savedLocations: savedLocations,
           rotationZ: rotationZ,
           rotationY: rotationY,
           rotationEW: rotationEW,
           horizonVisible: horizonVisible,
           meridianVisible: meridianVisible,
+          primeVerticalVisible: primeVerticalVisible,
           equatorVisible: equatorVisible,
           eclipticVisible: eclipticVisible,
           eclipticBandVisible: eclipticBandVisible,
@@ -230,12 +251,15 @@ function initApp() {
           const settings = JSON.parse(saved);
           let usedLegacyZenithNadir = false;
           // 各値を復元（デフォルト値をフォールバック）
-          latitude = settings.latitude ?? 35.4333;
+          latitude = settings.latitude ?? 35.4437;
+          longitude = settings.longitude ?? 139.6380;
+          savedLocations = settings.savedLocations ?? [];
           rotationZ = settings.rotationZ ?? 0;
           rotationY = settings.rotationY ?? 0;
           rotationEW = settings.rotationEW ?? 0;
           horizonVisible = settings.horizonVisible ?? true;
           meridianVisible = settings.meridianVisible ?? true;
+          primeVerticalVisible = settings.primeVerticalVisible ?? true;
           equatorVisible = settings.equatorVisible ?? true;
           eclipticVisible = settings.eclipticVisible ?? true;
           eclipticBandVisible = settings.eclipticBandVisible ?? true;
@@ -261,7 +285,7 @@ function initApp() {
               usedLegacyZenithNadir = true;
             }
           }
-          console.log('設定を復元しました');
+
           if (usedLegacyZenithNadir) {
             saveSettings();
           }
@@ -439,6 +463,7 @@ function initApp() {
     // ★★★ 表示項目のトグル ★★★
     const horizonToggle = document.getElementById('horizonToggle');
     const meridianToggle = document.getElementById('meridianToggle');
+    const primeVerticalToggle = document.getElementById('primeVerticalToggle');
     const equatorToggle = document.getElementById('equatorToggle');
     const eclipticToggle = document.getElementById('eclipticToggle');
     const eclipticBandToggle = document.getElementById('eclipticBandToggle');
@@ -448,6 +473,7 @@ function initApp() {
     const zenithNadirToggle = document.getElementById('zenithNadirToggle');
     let horizonVisible = horizonToggle.checked;
     let meridianVisible = meridianToggle.checked;
+    let primeVerticalVisible = primeVerticalToggle.checked;
     let equatorVisible = equatorToggle.checked;
     let eclipticVisible = eclipticToggle.checked;
     let eclipticBandVisible = eclipticBandToggle.checked;
@@ -473,6 +499,7 @@ function initApp() {
     });
     horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+    primeVerticalToggle.addEventListener('change', () => { primeVerticalVisible = primeVerticalToggle.checked; saveSettings(); requestRender(); }); // ★ ADDED
     equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
     eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
@@ -523,6 +550,7 @@ function initApp() {
     // チェックボックスの状態を復元
     if (horizonToggle) horizonToggle.checked = horizonVisible;
     if (meridianToggle) meridianToggle.checked = meridianVisible;
+    if (primeVerticalToggle) primeVerticalToggle.checked = primeVerticalVisible;
     if (equatorToggle) equatorToggle.checked = equatorVisible;
     if (eclipticToggle) eclipticToggle.checked = eclipticVisible;
     if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
@@ -537,57 +565,207 @@ function initApp() {
     if (zenithNadirToggle) zenithNadirToggle.checked = showZenithNadir;
     if (directionToggle) directionToggle.checked = directionVisible;
 
-    datetimeInput.addEventListener('change', () => {
-      const userDate = new Date(datetimeInput.value);
-      if (!isNaN(userDate)) {
-        currentDate = userDate;
-        updateAllPositions();
-        requestRender(); 
-      }
-    });
-
-    setLocationButton.addEventListener('click', async () => {
-      const city = locationInput.value.trim();
-      if (city) {
-        try {
-          const response = await fetch('./data/location.json');
-          if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
-          const locData = await response.json();
-          if (locData[city]) {
-            latitude = locData[city].latitude;
-            longitude = locData[city].longitude;
-            // 緯度入力フィールドも同期更新
-            const latitudeInput = document.getElementById("latitudeInput");
-            if (latitudeInput) {
-              latitudeInput.value = latitude.toFixed(1);
-            }
-            updateAllPositions();
-          } else {
-            console.error("指定された都市がlocation.jsonにありません");
-          }
-        } catch (e) {
-          console.error("location.json取得エラー:", e);
+    // ★★★ 日時変更ハンドラー（changeとinputの両方を監視） ★★★
+    if (datetimeInput) {
+      const handleDateTimeChange = () => {
+        const userDate = new Date(datetimeInput.value);
+        if (!isNaN(userDate)) {
+          currentDate = userDate;
+          updateAllPositions();
+          requestRender();
         }
+      };
+      
+      datetimeInput.addEventListener('change', handleDateTimeChange);
+      datetimeInput.addEventListener('input', handleDateTimeChange);
+    }
+
+    // ★★★ Nominatim API統合と地名検索機能 ★★★
+    const placeInput = document.getElementById("placeInput");
+    const searchPlaceButton = document.getElementById("searchPlaceButton");
+    
+    let lastSearchTime = 0;
+    const SEARCH_RATE_LIMIT = 1000; // 1秒に1リクエスト
+    
+    // フォールバック用ローカルJSONから検索
+    async function searchLocalLocation(placeName) {
+      try {
+        const response = await fetch('./data/location.json');
+        if (!response.ok) return null;
+        const locData = await response.json();
+        if (locData[placeName]) {
+          return {
+            lat: locData[placeName].latitude,
+            lon: locData[placeName].longitude,
+            display_name: placeName
+          };
+        }
+      } catch (e) {
+        console.warn('location.jsonからの検索に失敗しました:', e);
+      }
+      return null;
+    }
+    
+    // Nominatim APIで検索
+    async function searchNominatim(placeName) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(placeName)}&format=json&limit=1`;
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Sphere10 Celestial Sphere App (astrogrammar.com)'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.length > 0) {
+          return {
+            lat: parseFloat(data[0].lat),
+            lon: parseFloat(data[0].lon),
+            display_name: data[0].display_name
+          };
+        }
+      } catch (error) {
+        console.error('Nominatim検索エラー:', error);
+      }
+      return null;
+    }
+    
+    searchPlaceButton.addEventListener('click', async () => {
+      const placeName = placeInput.value.trim();
+      if (!placeName) return;
+      
+      // レート制限
+      const now = Date.now();
+      const timeSinceLastSearch = now - lastSearchTime;
+      if (timeSinceLastSearch < SEARCH_RATE_LIMIT) {
+        alert(`検索は1秒に1回までです。あと${Math.ceil((SEARCH_RATE_LIMIT - timeSinceLastSearch) / 1000)}秒お待ちください。`);
+        return;
+      }
+      lastSearchTime = now;
+      
+      // まずローカルJSONで検索
+      let result = await searchLocalLocation(placeName);
+      
+      // ローカルになければNominatimで検索
+      if (!result) {
+        result = await searchNominatim(placeName);
+      }
+      
+      if (result) {
+        latitude = result.lat;
+        longitude = result.lon;
+        
+        // UI更新
+        latitudeInput.value = latitude.toFixed(4);
+        longitudeInput.value = longitude.toFixed(4);
+        
+        // 天球更新
+        updateAllPositions();
+        saveSettings();
+        
+        // ★★★ 保存された場所リストに追加 ★★★
+        const locationName = placeName;
+        const existingIndex = savedLocations.findIndex(loc => loc.name === locationName);
+        if (existingIndex === -1) {
+          // 新規追加
+          savedLocations.push({
+            name: locationName,
+            lat: latitude,
+            lon: longitude
+          });
+          // 最大10件まで保存
+          if (savedLocations.length > 10) {
+            savedLocations.shift();
+          }
+          saveSettings();
+          renderSavedLocations();
+        }
+        
+        alert(`場所を設定しました: ${result.display_name}`);
+      } else {
+        alert(`「${placeName}」が見つかりませんでした。`);
       }
     });
+    
+    // ★★★ 保存された場所リストの描画 ★★★
+    function renderSavedLocations() {
+      const savedLocationsList = document.getElementById('savedLocationsList');
+      if (!savedLocationsList) return;
+      
+      savedLocationsList.innerHTML = '';
+      
+      savedLocations.forEach((loc, index) => {
+        const btn = document.createElement('button');
+        btn.textContent = loc.name;
+        btn.style.cssText = 'padding: 3px 8px; font-size: 0.85em; cursor: pointer; background: #444; color: #fff; border: 1px solid #666; border-radius: 3px;';
+        btn.addEventListener('click', () => {
+          latitude = loc.lat;
+          longitude = loc.lon;
+          latitudeInput.value = latitude.toFixed(4);
+          longitudeInput.value = longitude.toFixed(4);
+          updateAllPositions();
+          saveSettings();
+        });
+        
+        // 削除ボタン
+        const deleteBtn = document.createElement('span');
+        deleteBtn.textContent = '×';
+        deleteBtn.style.cssText = 'margin-left: 5px; cursor: pointer; color: #f88;';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          savedLocations.splice(index, 1);
+          saveSettings();
+          renderSavedLocations();
+        });
+        
+        btn.appendChild(deleteBtn);
+        savedLocationsList.appendChild(btn);
+      });
+    }
+    
+    // 初期表示
+    renderSavedLocations();
 
     // ★★★ 緯度調節機能 ★★★
     const latitudeInput = document.getElementById("latitudeInput");
     latitudeInput.addEventListener("change", () => {
       let newLat = parseFloat(latitudeInput.value);
       if (isNaN(newLat)) {
-        newLat = 35.4; // デフォルト値に戻す
+        newLat = 35.4437; // デフォルト値に戻す
       }
       if (newLat > 89.9999) newLat = 89.9999;
       if (newLat < -89.9999) newLat = -89.9999;
       latitude = newLat;
-      latitudeInput.value = latitude.toFixed(1);
+      latitudeInput.value = latitude.toFixed(4);
       updateAllPositions();
       saveSettings();
     });
 
     // 初期値の設定
-    latitudeInput.value = latitude.toFixed(1);
+    latitudeInput.value = latitude.toFixed(4);
+
+    // ★★★ 経度調節機能 ★★★
+    const longitudeInput = document.getElementById("longitudeInput");
+    longitudeInput.addEventListener("change", () => {
+      let newLon = parseFloat(longitudeInput.value);
+      if (isNaN(newLon)) {
+        newLon = 139.6380; // デフォルト値に戻す
+      }
+      if (newLon > 180) newLon = 180;
+      if (newLon < -180) newLon = -180;
+      longitude = newLon;
+      longitudeInput.value = longitude.toFixed(4);
+      updateAllPositions();
+      saveSettings();
+    });
+
+    // 初期値の設定
+    longitudeInput.value = longitude.toFixed(4);
 
     rotationZSlider.addEventListener('input', () => {
       rotationZ = rotationZSlider.value * Math.PI / 180;
@@ -813,13 +991,13 @@ function initApp() {
         
         if (debugMode) {
           createDebugPanel();
-          console.log('🔬 Sphere10 Debug Mode: ON');
+
         } else {
           if (debugPanel) {
             debugPanel.remove();
             debugPanel = null;
           }
-          console.log('🔬 Sphere10 Debug Mode: OFF');
+
         }
       }
     });
@@ -880,10 +1058,7 @@ function initApp() {
     // ★★★ FIX: リロード時にSTOPボタンを選択状態にする ★★★
     setActiveButton(pauseButton);
 
-    let sunRA = 0;  
-    let sunDec = 0; 
-    let moonRA = 0; 
-    let moonDec = 0; 
+    // sunRA, sunDec, moonRA, moonDecはグローバルスコープに移動済み 
 
     const planetData = [
       { name: "  ☿ Mercury", body: Astronomy.Body.Mercury, color: "#cccccc", RA: 0, Dec: 0 },
@@ -896,7 +1071,8 @@ function initApp() {
       { name: "♇ Pluto",   body: Astronomy.Body.Pluto,   color: "#aaaaaa", RA: 0, Dec: 0 }
     ];
 
-    async function updateAllPositions() {
+    updateAllPositions = async function() {
+
       const time = Astronomy.MakeTime(currentDate);
       // ★★★ Set absolute Julian Date for lunar orbit calculation
       // time.ut is days since J2000, so add J2000 epoch to get absolute JD
@@ -962,7 +1138,57 @@ function initApp() {
       // ========================================
       // ★ END ADDED
       // ========================================
+
+      // ========================================
+      // ★★★ LST（地方恒星時）計算と天球回転角度の更新 ★★★
+      // ========================================
+      // GAST（グリニッジ視恒星時）を恒星時（hours）で取得
+      const gast_hours = Astronomy.SiderealTime(time); // sidereal hours (0-24)
+      
+      // 恒星時を度に変換（1 hour = 15 degrees）
+      const gast_deg = gast_hours * 15;
+      
+      // LST = GAST + 経度（東が正）
+      const lst_deg = gast_deg + longitude; // degrees
+      
+      // 天球回転角度をラジアンに変換して更新
+      celestialAngle = lst_deg * Math.PI / 180;
+      
+
+      // ========================================
+      // ★★★ END LST CALCULATION ★★★
+      // ========================================
+
       requestRender();
+    }
+
+    // 地平座標（方位角、高度）から赤道座標（赤経、赤緯）への変換
+    function toEquatorial(azimuth, altitude, lst) {
+      const latRad = latitude * Math.PI / 180;
+      
+      // 赤緯を計算
+      const sinDec = Math.sin(altitude) * Math.sin(latRad) + Math.cos(altitude) * Math.cos(latRad) * Math.cos(azimuth);
+      const dec = Math.asin(sinDec);
+      
+      // 時角を計算
+      const cosDec = Math.cos(dec);
+      let ha;
+      if (Math.abs(cosDec) < CONSTANTS.ZENITH_NADIR_THRESHOLD) {
+        // 天頂または天底: 時角は不定
+        ha = 0;
+      } else {
+        const cosHA = (Math.sin(altitude) - Math.sin(latRad) * Math.sin(dec)) / (Math.cos(latRad) * cosDec);
+        const sinHA = -Math.sin(azimuth) * Math.cos(altitude) / cosDec;
+        ha = Math.atan2(sinHA, cosHA);
+        if (ha < 0) ha += 2 * Math.PI;
+      }
+      
+      // 赤経を計算
+      let ra = lst - ha;
+      // 赤経を0〜2πの範囲に正規化
+      ra = ((ra % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      
+      return { ra, dec };
     }
 
     function toHorizontal(ra, dec, lst) {
@@ -1058,7 +1284,7 @@ function initApp() {
           if (isNaN(Vmag) || Vmag > 5.5) continue;
           stars.push({ RAhms, DEdms, Vmag });
         }
-        console.log(`Loaded ${stars.length} stars`);
+
         return stars;
       } catch (error) {
         console.error('星表データの読み込み失敗:', error);
@@ -1097,7 +1323,7 @@ function initApp() {
       for (const star of starsData) {
         const ra = star.RAdeg * Math.PI / 180;
         const dec = star.Decdeg * Math.PI / 180;
-        let { x, y, z } = toHorizontal(ra, dec, angle);
+        let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         
@@ -1143,7 +1369,7 @@ function initApp() {
     function drawSun() {
       const sunRA_rad = (sunRA * 15) * Math.PI / 180;
       const sunDec_rad = sunDec * Math.PI / 180;
-      let { x, y, z } = toHorizontal(sunRA_rad, sunDec_rad, angle);
+      let { x, y, z } = toHorizontal(sunRA_rad, sunDec_rad, celestialAngle);
       ({ x, y, z } = applyAllRotations(x, y, z));
       const p = project(x, y, z);
       if (p) {
@@ -1173,7 +1399,7 @@ function initApp() {
     function drawMoon() {
       const moonRA_rad = (moonRA * 15) * Math.PI / 180;
       const moonDec_rad = moonDec * Math.PI / 180;
-      let { x, y, z } = toHorizontal(moonRA_rad, moonDec_rad, angle);
+      let { x, y, z } = toHorizontal(moonRA_rad, moonDec_rad, celestialAngle);
       ({ x, y, z } = applyAllRotations(x, y, z));
       const p = project(x, y, z);
       if (p) {
@@ -1207,7 +1433,7 @@ function initApp() {
       const currentRA = planetData.map(p => p.RA);
       const currentDec = planetData.map(p => p.Dec);
       
-      const angleChanged = planetLabelCache.lastAngle !== angle;
+      const angleChanged = planetLabelCache.lastAngle !== celestialAngle;
       const latitudeChanged = planetLabelCache.lastLatitude !== latitude;
       const planetPositionChanged = 
         !planetLabelCache.lastRA || 
@@ -1219,9 +1445,9 @@ function initApp() {
         planetLabelCache.coords = planetData.map(pData => {
           const raRad = (pData.RA * 15) * Math.PI / 180;
           const decRad = pData.Dec * Math.PI / 180;
-          return toHorizontal(raRad, decRad, angle);
+          return toHorizontal(raRad, decRad, celestialAngle);
         });
-        planetLabelCache.lastAngle = angle;
+        planetLabelCache.lastAngle = celestialAngle;
         planetLabelCache.lastLatitude = latitude;
         planetLabelCache.lastRA = currentRA;
         planetLabelCache.lastDec = currentDec;
@@ -1347,7 +1573,7 @@ function initApp() {
         ctx.beginPath();
         let started = false;
         for (const p of points) {
-          let { x, y, z } = toHorizontal(p.ra, p.dec, angle);
+          let { x, y, z } = toHorizontal(p.ra, p.dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const pr = project(x, y, z);
           if (pr) {
@@ -1369,7 +1595,7 @@ function initApp() {
         // 奥行き暗化あり：セグメント分割
         const projectedPoints = [];
         for (const p of points) {
-          let { x, y, z } = toHorizontal(p.ra, p.dec, angle);
+          let { x, y, z } = toHorizontal(p.ra, p.dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const pr = project(x, y, z);
           if (pr) {
@@ -1472,7 +1698,7 @@ function initApp() {
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
           const { ra, dec } = raDecFunc(t);
-          let { x, y, z } = toHorizontal(ra, dec, angle);
+          let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           if (p) {
@@ -1500,7 +1726,7 @@ function initApp() {
         for (let i = 0; i <= steps; i++) {
           const t = i * (2 * Math.PI / steps);
           const { ra, dec } = raDecFunc(t);
-          let { x, y, z } = toHorizontal(ra, dec, angle);
+          let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           
@@ -1561,7 +1787,7 @@ function initApp() {
       drawGreatCircle(
         (t) => {
           const dec = t - Math.PI; 
-          const ra = angle; 
+          const ra = celestialAngle; 
           return { ra, dec };
         },
         CONSTANTS.COLORS.MERIDIAN,
@@ -1569,6 +1795,35 @@ function initApp() {
         false,
         180
       ); // false＝実線, steps=180で半周（子午線は半周で完結）
+    }
+
+    function drawPrimeVertical() {
+      if (!primeVerticalVisible) return;
+      
+      // 卯酉線は東西（方位角90°/270°）を通る大円
+      // 単一の呼び出しで完全な円を描画（二重描画を回避）
+      drawGreatCircle(
+        (t) => {
+          let azimuth, altitude;
+          
+          if (t <= Math.PI) {
+            // 前半: 東側の半円（天底 → 東 → 天頂）
+            azimuth = Math.PI / 2;       // 90°（東）
+            altitude = t - Math.PI / 2;  // -π/2 〜 π/2
+          } else {
+            // 後半: 西側の半円（天頂 → 西 → 天底）
+            azimuth = 3 * Math.PI / 2;         // 270°（西）
+            altitude = 3 * Math.PI / 2 - t;    // π/2 〜 -π/2
+          }
+          
+          const { ra, dec } = toEquatorial(azimuth, altitude, celestialAngle);
+          return { ra, dec };
+        },
+        CONSTANTS.COLORS.MERIDIAN,
+        CONSTANTS.GREAT_CIRCLE_LINE_WIDTH,
+        false,
+        360  // 完全な円（steps = 360）
+      );
     }
 
     function drawEquator() {
@@ -1639,7 +1894,7 @@ function initApp() {
             Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambdaConst) - Math.sin(beta) * Math.sin(epsilon),
             Math.cos(beta) * Math.cos(lambdaConst)
           );
-          let { x, y, z } = toHorizontal(ra, dec, angle);
+          let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           if (p) {
@@ -1682,7 +1937,7 @@ function initApp() {
         const lambda = lambdaDeg * Math.PI / 180;
         const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
         const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
-        let { x, y, z } = toHorizontal(ra, dec, angle);
+        let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         if (p) ctx.fillText(zodiacSymbols[i], p.sx, p.sy);
@@ -1706,7 +1961,7 @@ function initApp() {
         const steps = isRotating ? 25 : 40; // 50 → 25-40 (50-20%削減)
         for (let j = 0; j <= steps; j++) {
           const dec = -Math.PI / 2 + (Math.PI * (j / steps));
-          let { x, y, z } = toHorizontal(RAconst, dec, angle);
+          let { x, y, z } = toHorizontal(RAconst, dec, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           if (p) {
@@ -1750,7 +2005,7 @@ function initApp() {
         const steps = isRotating ? 24 : 48; // 72 → 24-48 (66-33%削減)
         for (let i = 0; i <= steps; i++) {
           const raRad = (i * 360 / steps) * Math.PI / 180;
-          let { x, y, z } = toHorizontal(raRad, decRad, angle);
+          let { x, y, z } = toHorizontal(raRad, decRad, celestialAngle);
           ({ x, y, z } = applyAllRotations(x, y, z));
           const p = project(x, y, z);
           
@@ -1863,11 +2118,11 @@ function initApp() {
     let staticElementsCache = null;
     
     // ★ ADDED (Phase 1): Request render function for dirty rendering
-    function requestRender() {
+    requestRender = function() {
       if (rafId === null) {
         rafId = requestAnimationFrame(renderFrame);
       }
-    }
+    };
     
     // ★ ADDED: requestRenderをwindowオブジェクトに公開（chart.jsからアクセスするため）
     window.requestRender = requestRender;
@@ -1888,7 +2143,8 @@ function initApp() {
       const frameTime = Date.now(); // 1回だけ取得
       
       if (isPlaying) {
-        angle += 0.002 * playbackSpeed;
+        // ★★★ LST制御: celestialAngleの手動更新を無効化（updateAllPositionsでLSTから計算） ★★★
+        // celestialAngle += 0.002 * playbackSpeed; // ← 無効化：LSTから自動計算
         currentDate.setSeconds(currentDate.getSeconds() + playbackSpeed);
         
         // ★ MODIFIED (Phase 1): Throttle ephemeris calculations
@@ -1927,6 +2183,7 @@ function initApp() {
       drawHorizon();
       drawAltitudeGrid();
       drawMeridian();
+      drawPrimeVertical();
       drawEquator();
       drawLunarOrbit3D();  // 白道描画（黄道と赤道の間）
       drawEcliptic();
@@ -1947,7 +2204,7 @@ function initApp() {
       if (typeof drawStarNames === 'function') {
         drawStarNames(
           ctx, 
-          angle, 
+          celestialAngle, 
           latitude, 
           starNamesVisible, 
           applyDepthShading,
@@ -1959,7 +2216,7 @@ function initApp() {
       
       // ★★★ デバッグ情報更新 ★★★
       // ★ MODIFIED (Phase 1): Store debug values instead of updating DOM directly
-      const lst = (angle * 180 / Math.PI / 15) % 24;
+      const lst = (celestialAngle * 180 / Math.PI / 15) % 24;
       debugValues.lst = lst.toFixed(2);
       debugValues.date = currentDate.toLocaleString();
       // Other debug values...
