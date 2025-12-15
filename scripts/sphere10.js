@@ -1156,21 +1156,19 @@ function initApp() {
       // ========================================
       // ★★★ LST（地方恒星時）計算と天球回転角度の更新 ★★★
       // ========================================
-      // GAST（グリニッジ視恒星時）を度単位で取得
-      const gast = Astronomy.SiderealTime(time); // degrees (0-360)
+      // GAST（グリニッジ視恒星時）を恒星時（hours）で取得
+      const gast_hours = Astronomy.SiderealTime(time); // sidereal hours (0-24)
+      
+      // 恒星時を度に変換（1 hour = 15 degrees）
+      const gast_deg = gast_hours * 15;
       
       // LST = GAST + 経度（東が正）
-      const lst = gast + longitude; // degrees
+      const lst_deg = gast_deg + longitude; // degrees
       
       // 天球回転角度をラジアンに変換して更新
-      // Apply offset to align the celestial sphere texture
-      // The texture seems to be offset by 180 degrees (PI radians)
-      celestialAngle = (lst * Math.PI / 180) - Math.PI;
+      celestialAngle = lst_deg * Math.PI / 180;
       
-     // Debug: Uncomment to log LST and Sun RA
-      // const sunEqu = Astronomy.Equator(Astronomy.Body.Sun, time, observer, true, true);
-      // console.log("[LST] Sun RA:", (sunEqu.ra / 15).toFixed(2), "h (", sunEqu.ra.toFixed(2), "°)");
-      // console.log("[LST] GAST:", gast.toFixed(2), "°", ", LST:", lst.toFixed(2), "°, celestialAngle:", (celestialAngle * 180 / Math.PI).toFixed(2), "°");
+
       // ========================================
       // ★★★ END LST CALCULATION ★★★
       // ========================================
