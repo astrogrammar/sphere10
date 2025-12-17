@@ -1,604 +1,925 @@
-// Sphere10 - 天球シミュレーター
+// 2512151255
+// Sphere10 ver.3.0 - 天球シミュレーター
 // 古典占星術向けの3D天球表示アプリケーション
+
+// ========================================
+// 定数定義
+// ========================================
+const CONSTANTS = {
+  // キャンバス・描画設定
+  CANVAS_SCALE_FACTOR: 0.35,
+  ZOOM_DEFAULT: 1.0,
+  ZOOM_MIN: 0.1,
+  ZOOM_MAX: 10,
+  ZOOM_WHEEL_SENSITIVITY: 0.001,
+
+  // タッチ・マウス操作
+  TOUCH_ROTATION_SENSITIVITY: 0.005,
+  MOUSE_ROTATION_SENSITIVITY: 0.005,
+
+  // 深度シェーディング
+  DEPTH_ALPHA_FRONT: 1.0,
+  DEPTH_ALPHA_BACK: 0.4,
+
+  // 座標変換
+  ZENITH_NADIR_THRESHOLD: 1e-10,
+
+  // グリッド・線の描画
+  GREAT_CIRCLE_LINE_WIDTH: 2,
+
+  // 色定義
+  COLORS: {
+    MERIDIAN: '#4097E8',
+    EQUATOR: 'red',
+    ECLIPTIC: 'orange'
+  }
+};
+
+// ★★★ グローバル変数 ★★★
+let currentDate = new Date();
+let latitude = 35.4437;
+let longitude = 139.6380;
+
+// ★★★ 天体位置変数 ★★★
+let sunRA = 0;
+let sunDec = 0;
+let moonRA = 0;
+let moonDec = 0;
+
+// ★★★ グローバル関数 ★★★
+let updateAllPositions = null;  // initApp内で定義される
+let requestRender = null;       // initApp内で定義される
+
+// ★★★ LST（地方恒星時）による天球回転制御 ★★★
+let celestialAngle = 0;  // 天球回転角度（ラジアン）
 
 // ★★★ 初期化関数 ★★★
 function initApp() {
-    // キャンバス要素の取得とサイズ設定
-    const canvas = document.getElementById('sky');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  // ★★★ 恒星名表示機能の初期化 ★★★
+  if (typeof initStarNames === 'function') {
+    initStarNames();
+  }
 
-    const w = canvas.width;
-    const h = canvas.height;
-    let zoom = 1.0;
-    let scale = w * 0.35 * zoom;
-    const centerX = w / 2;
-    const centerY = h / 2;
+  // キャンバス要素の取得とサイズ設定
+  const canvas = document.getElementById('sky');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 
-    // ★★★ タッチ操作対応（iPadサポート） ★★★
-    let initialTouchDistance = null;
-    let initialZoom = zoom;
+  const w = canvas.width;
+  const h = canvas.height;
+  let zoom = CONSTANTS.ZOOM_DEFAULT;
+  let scale = w * CONSTANTS.CANVAS_SCALE_FACTOR * zoom;
+  const centerX = w / 2;
+  const centerY = h / 2;
 
-    // タッチイベントリスナー
-    canvas.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2) {
-            const dx = e.touches[0].clientX - e.touches[1].clientX;
-            const dy = e.touches[0].clientY - e.touches[1].clientY;
-            initialTouchDistance = Math.hypot(dx, dy);
-            initialZoom = zoom;
-        }
-    });
-    canvas.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && initialTouchDistance !== null) {
-            const dx = e.touches[0].clientX - e.touches[1].clientX;
-            const dy = e.touches[0].clientY - e.touches[1].clientY;
-            const currentDistance = Math.hypot(dx, dy);
-            zoom = initialZoom * (currentDistance / initialTouchDistance);
-            zoom = Math.min(Math.max(zoom, 0.1), 10);
-            scale = w * 0.4 * zoom;
-            e.preventDefault();
-        }
-    });
-    canvas.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2) {
-            initialTouchDistance = null;
-        }
-    });
+  // ★★★ タッチ操作対応（iPadサポート） ★★★
+  let initialTouchDistance = null;
+  let initialZoom = zoom;
 
-    // ★★★ マウスホイールによるズーム機能 ★★★
-    canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const delta = -e.deltaY * 0.001;  
-        zoom += delta;
-        zoom = Math.min(Math.max(zoom, 0.1), 10);
-        scale = w * 0.4 * zoom;
-    });
-    
-    console.log("スクリプトが実行されています。");
-
-    let rotationZ = 0;  
-    let rotationY = 0;  
-    let rotationEW = 0; 
-
-    const rotationZSlider = document.getElementById('rotationZSlider');
-    const rotationYSlider = document.getElementById('rotationYSlider');
-    const rotationEWSlider = document.getElementById('rotationEWSlider');
-    const rotationZVal = document.getElementById('rotationZVal');
-    const rotationYVal = document.getElementById('rotationYVal');
-    const rotationEWVal = document.getElementById('rotationEWVal');
-
-    let angle = 0; 
-    let isPlaying = true;
-    let playbackSpeed = 1; 
-
-    let currentDate = new Date();
-    let latitude = 35.4333;
-    let longitude = 139.65;
-    let showAltGrid = true;
-    let showZenithNadir = true;
-
-    // ★★★ 設定値記憶機能 ★★★
-    function saveSettings() {
-      try {
-        const settings = {
-          latitude: latitude,
-          rotationZ: rotationZ,
-          rotationY: rotationY,
-          rotationEW: rotationEW,
-          horizonVisible: horizonVisible,
-          meridianVisible: meridianVisible,
-          equatorVisible: equatorVisible,
-          eclipticVisible: eclipticVisible,
-          eclipticBandVisible: eclipticBandVisible,
-          ra12LinesVisible: ra12LinesVisible,
-          declinationLinesVisible: declinationLinesVisible,
-          starsVisible: starsVisible,
-          showBackSide: showBackSide,
-          planetLabelsVisible: planetLabelsVisible,
-          reverseEastWest: reverseEastWest,
-          directionVisible: directionVisible,
-          showAltGrid: showAltGrid,
-          showZenithNadir: showZenithNadir
-        };
-        if (typeof store !== 'undefined') {
-          store.set('sphere10_settings', JSON.stringify(settings));
-        }
-      } catch (e) {
-        console.warn('設定の保存に失敗しました:', e);
-      }
+  // タッチイベントリスナー
+  canvas.addEventListener('touchstart', (e) => {
+    // ★ ADDED (Phase 1 fix): 1本指ドラッグで回転
+    if (e.touches.length === 1) {
+      isDragging = true;
+      const touch = e.touches[0];
+      lastMouseX = touch.clientX;
+      lastMouseY = touch.clientY;
     }
 
-    function loadSettings() {
-      try {
-        const saved = typeof store !== 'undefined' ? store.get('sphere10_settings') : null;
-        if (saved) {
-          const settings = JSON.parse(saved);
-          let usedLegacyZenithNadir = false;
-          // 各値を復元（デフォルト値をフォールバック）
-          latitude = settings.latitude ?? 35.4333;
-          rotationZ = settings.rotationZ ?? 0;
-          rotationY = settings.rotationY ?? 0;
-          rotationEW = settings.rotationEW ?? 0;
-          horizonVisible = settings.horizonVisible ?? true;
-          meridianVisible = settings.meridianVisible ?? true;
-          equatorVisible = settings.equatorVisible ?? true;
-          eclipticVisible = settings.eclipticVisible ?? true;
-          eclipticBandVisible = settings.eclipticBandVisible ?? true;
-          ra12LinesVisible = settings.ra12LinesVisible ?? true;
-          declinationLinesVisible = settings.declinationLinesVisible ?? true;
-          starsVisible = settings.starsVisible ?? true;
-          showBackSide = settings.showBackSide ?? false;
-          planetLabelsVisible = settings.planetLabelsVisible ?? false;
-          reverseEastWest = settings.reverseEastWest ?? false;
-          directionVisible = settings.directionVisible ?? true;
-          showAltGrid = settings.showAltGrid ?? showAltGrid;
-          const storedZenithNadir = normalizeStoredBoolean(settings.showZenithNadir);
-          if (typeof storedZenithNadir === 'boolean') {
-            showZenithNadir = storedZenithNadir;
-          } else {
-            const legacyZenith = normalizeStoredBoolean(settings.showZenith);
-            const legacyNadir = normalizeStoredBoolean(settings.showNadir);
-            if (typeof legacyZenith === 'boolean' || typeof legacyNadir === 'boolean') {
-              showZenithNadir = (legacyZenith === true) || (legacyNadir === true);
-              usedLegacyZenithNadir = true;
-            }
+    // 2本指でピンチ（ズーム）
+    if (e.touches.length === 2) {
+      isDragging = false; // ★ ADDED: ピンチ操作開始時はドラッグを無効化
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialTouchDistance = Math.hypot(dx, dy);
+      initialZoom = zoom;
+    }
+  });
+  canvas.addEventListener('touchmove', (e) => {
+    // ★ ADDED (Phase 1 fix): 1本指ドラッグで回転
+    if (e.touches.length === 1 && isDragging) {
+      const touch = e.touches[0];
+      const dx = touch.clientX - lastMouseX;
+      const dy = touch.clientY - lastMouseY;
+
+      rotationZ += dx * CONSTANTS.TOUCH_ROTATION_SENSITIVITY;
+      rotationY += dy * CONSTANTS.TOUCH_ROTATION_SENSITIVITY;
+
+      window.lastRotationTime = Date.now();
+
+      lastMouseX = touch.clientX;
+      lastMouseY = touch.clientY;
+
+      rotationZSlider.value = (rotationZ * 180 / Math.PI).toFixed(0);
+      rotationZVal.textContent = rotationZSlider.value + "°";
+      rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
+      rotationYVal.textContent = rotationYVal.value + "°";
+
+      e.preventDefault();
+      requestRender();
+    }
+
+    // 2本指でピンチ（ズーム）
+    if (e.touches.length === 2 && initialTouchDistance !== null) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const currentDistance = Math.hypot(dx, dy);
+      zoom = initialZoom * (currentDistance / initialTouchDistance);
+      zoom = Math.min(Math.max(zoom, CONSTANTS.ZOOM_MIN), CONSTANTS.ZOOM_MAX);
+      scale = w * 0.4 * zoom;
+      e.preventDefault();
+      requestRender();
+    }
+  });
+  canvas.addEventListener('touchend', (e) => {
+    // ★ ADDED (Phase 1 fix): ドラッグ終了
+    if (e.touches.length < 1) {
+      isDragging = false;
+      saveSettings(); // ★ ADDED: ドラッグ終了時に保存
+    }
+
+    // ピンチ終了
+    if (e.touches.length < 2) {
+      initialTouchDistance = null;
+    }
+  });
+
+  // ★★★ マウスホイールによるズーム機能 ★★★
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = -e.deltaY * CONSTANTS.ZOOM_WHEEL_SENSITIVITY;
+    zoom += delta;
+    zoom = Math.min(Math.max(zoom, CONSTANTS.ZOOM_MIN), CONSTANTS.ZOOM_MAX);
+    scale = w * 0.4 * zoom;
+    requestRender();
+  });
+
+
+
+  let rotationZ = 0;
+  let rotationY = 0;
+  let rotationEW = 0;
+
+  const rotationZSlider = document.getElementById('rotationZSlider');
+  const rotationYSlider = document.getElementById('rotationYSlider');
+  const rotationEWSlider = document.getElementById('rotationEWSlider');
+  const rotationZVal = document.getElementById('rotationZVal');
+  const rotationYVal = document.getElementById('rotationYVal');
+  const rotationEWVal = document.getElementById('rotationEWVal');
+
+  // ★★★ LST制御: ローカル変数angleを削除し、グローバルcelestialAngleを使用 ★★★
+  // let celestialAngle = 0; // ← 削除：グローバルcelestialAngleを使用
+  // ★ MODIFIED (Phase 1): Default to pause for better initial performance
+  let isPlaying = false;
+  let playbackSpeed = 1;
+
+  // ★ ADDED (Phase 1): Dirty rendering flags
+  let rafId = null;
+  let needsRender = true;
+
+  // ★★★ Safari最適化: Canvas context定期リセット ★★★
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  let safariFrameCount = 0;
+
+  // ★ ADDED (Phase 1): Throttle ephemeris calculations
+  let lastEphemerisUpdate = 0;
+  const EPHEMERIS_INTERVAL = 250; // ms
+
+  // ★ ADDED (Phase 1): Debug values for throttled DOM updates
+  let debugValues = {};
+
+  // currentDate, latitude, longitudeはグローバルスコープに移動済み
+  let savedLocations = []; // ★★★ 保存された場所リスト ★★★
+  let showAltGrid = true;
+  let showZenithNadir = true;
+
+  // ★★★ トロピカル/サイデリアル切り替え ★★★
+  const AYANAMSHA = 25; // サイデリアル方式のオフセット（度）
+  let isSidereal = false; // デフォルトはトロピカル方式
+
+  // ★ ADDED: isSiderealをwindowオブジェクトに公開（chart.jsからアクセスするため）
+  Object.defineProperty(window, 'isSidereal', {
+    get: () => isSidereal,
+    set: (value) => {
+      isSidereal = value;
+      saveSettings();
+    }
+  });
+
+  // ★★★ 設定値記憶機能 ★★★
+  function saveSettings() {
+    try {
+      const settings = {
+        latitude: latitude,
+        longitude: longitude,
+        savedLocations: savedLocations,
+        rotationZ: rotationZ,
+        rotationY: rotationY,
+        rotationEW: rotationEW,
+        horizonVisible: horizonVisible,
+        meridianVisible: meridianVisible,
+        primeVerticalVisible: primeVerticalVisible,
+        equatorVisible: equatorVisible,
+        eclipticVisible: eclipticVisible,
+        eclipticBandVisible: eclipticBandVisible,
+        ra12LinesVisible: ra12LinesVisible,
+        declinationLinesVisible: declinationLinesVisible,
+        starsVisible: starsVisible,
+        showBackSide: showBackSide,
+        applyDepthShading: applyDepthShading,
+        planetLabelsVisible: planetLabelsVisible,
+        reverseEastWest: reverseEastWest,
+        directionVisible: directionVisible,
+        showAltGrid: showAltGrid,
+        showZenithNadir: showZenithNadir,
+        isSidereal: isSidereal,
+        lunarOrbitVisible: lunarOrbitVisible
+      };
+      if (typeof store !== 'undefined') {
+        store.set('sphere10_settings', JSON.stringify(settings));
+      }
+    } catch (e) {
+      console.warn('設定の保存に失敗しました:', e);
+    }
+  }
+
+  function loadSettings() {
+    try {
+      const saved = typeof store !== 'undefined' ? store.get('sphere10_settings') : null;
+      if (saved) {
+        const settings = JSON.parse(saved);
+        let usedLegacyZenithNadir = false;
+        // 各値を復元（デフォルト値をフォールバック）
+        latitude = settings.latitude ?? 35.4437;
+        longitude = settings.longitude ?? 139.6380;
+        savedLocations = settings.savedLocations ?? [];
+        rotationZ = settings.rotationZ ?? 0;
+        rotationY = settings.rotationY ?? 0;
+        rotationEW = settings.rotationEW ?? 0;
+        horizonVisible = settings.horizonVisible ?? true;
+        meridianVisible = settings.meridianVisible ?? true;
+        primeVerticalVisible = settings.primeVerticalVisible ?? true;
+        equatorVisible = settings.equatorVisible ?? true;
+        eclipticVisible = settings.eclipticVisible ?? true;
+        eclipticBandVisible = settings.eclipticBandVisible ?? true;
+        ra12LinesVisible = settings.ra12LinesVisible ?? true;
+        declinationLinesVisible = settings.declinationLinesVisible ?? true;
+        starsVisible = settings.starsVisible ?? true;
+        showBackSide = settings.showBackSide ?? false;
+        applyDepthShading = settings.applyDepthShading ?? false;
+        planetLabelsVisible = settings.planetLabelsVisible ?? false;
+        reverseEastWest = settings.reverseEastWest ?? false;
+        directionVisible = settings.directionVisible ?? true;
+        showAltGrid = settings.showAltGrid ?? showAltGrid;
+        isSidereal = settings.isSidereal ?? false;
+        lunarOrbitVisible = settings.lunarOrbitVisible ?? false;
+        const storedZenithNadir = normalizeStoredBoolean(settings.showZenithNadir);
+        if (typeof storedZenithNadir === 'boolean') {
+          showZenithNadir = storedZenithNadir;
+        } else {
+          const legacyZenith = normalizeStoredBoolean(settings.showZenith);
+          const legacyNadir = normalizeStoredBoolean(settings.showNadir);
+          if (typeof legacyZenith === 'boolean' || typeof legacyNadir === 'boolean') {
+            showZenithNadir = (legacyZenith === true) || (legacyNadir === true);
+            usedLegacyZenithNadir = true;
           }
-          console.log('設定を復元しました');
-          if (usedLegacyZenithNadir) {
-            saveSettings();
-          }
-          return true;
         }
-      } catch (e) {
-        console.warn('設定の読み込みに失敗しました:', e);
-      }
-      return false;
-    }
 
-    function getStoredBoolean(key, defaultValue) {
-      if (typeof store === 'undefined' || !store || typeof store.get !== 'function') {
-        return defaultValue;
-      }
-      try {
-        const stored = store.get(key, defaultValue);
-        if (typeof stored === 'boolean') {
-          return stored;
-        }
-        if (stored === 'true') return true;
-        if (stored === 'false') return false;
-        return defaultValue;
-      } catch (error) {
-        console.warn('store.get に失敗しました:', error);
-        return defaultValue;
-      }
-    }
-
-    function setStoredBoolean(key, value) {
-      if (typeof store === 'undefined' || !store || typeof store.set !== 'function') {
-        return false;
-      }
-      try {
-        store.set(key, value);
-        if (typeof console !== 'undefined' && typeof console.debug === 'function') {
-          console.debug(`[store] ${key}=${value}`);
+        if (usedLegacyZenithNadir) {
+          saveSettings();
         }
         return true;
-      } catch (error) {
-        console.warn('store.set に失敗しました:', error);
-        return false;
       }
+    } catch (e) {
+      console.warn('設定の読み込みに失敗しました:', e);
     }
+    return false;
+  }
 
-    function normalizeStoredBoolean(value) {
-      if (value === true || value === 'true') return true;
-      if (value === false || value === 'false') return false;
-      return undefined;
+  function getStoredBoolean(key, defaultValue) {
+    if (typeof store === 'undefined' || !store || typeof store.get !== 'function') {
+      return defaultValue;
     }
-
-    function setupPersistentToggle(element, key, defaultValue, onChange) {
-      let currentValue = defaultValue;
-      if (!element) {
-        if (typeof onChange === 'function') {
-          onChange(currentValue, true);
-        }
-        return currentValue;
+    try {
+      const stored = store.get(key, defaultValue);
+      if (typeof stored === 'boolean') {
+        return stored;
       }
+      if (stored === 'true') return true;
+      if (stored === 'false') return false;
+      return defaultValue;
+    } catch (error) {
+      console.warn('store.get に失敗しました:', error);
+      return defaultValue;
+    }
+  }
 
-      currentValue = getStoredBoolean(key, element.checked ?? defaultValue);
-      element.checked = currentValue;
+  function setStoredBoolean(key, value) {
+    if (typeof store === 'undefined' || !store || typeof store.set !== 'function') {
+      return false;
+    }
+    try {
+      store.set(key, value);
+      if (typeof console !== 'undefined' && typeof console.debug === 'function') {
+        console.debug(`[store] ${key}=${value}`);
+      }
+      return true;
+    } catch (error) {
+      console.warn('store.set に失敗しました:', error);
+      return false;
+    }
+  }
+
+  function normalizeStoredBoolean(value) {
+    if (value === true || value === 'true') return true;
+    if (value === false || value === 'false') return false;
+    return undefined;
+  }
+
+  function setupPersistentToggle(element, key, defaultValue, onChange) {
+    let currentValue = defaultValue;
+    if (!element) {
       if (typeof onChange === 'function') {
         onChange(currentValue, true);
       }
-
-      element.addEventListener('change', () => {
-        const nextValue = element.checked;
-        setStoredBoolean(key, nextValue);
-        if (typeof onChange === 'function') {
-          onChange(nextValue, false);
-        }
-      });
-
       return currentValue;
     }
 
-    function migrateZenithNadirPreference() {
-      if (typeof store === 'undefined' || !store || typeof store.get !== 'function') {
-        return undefined;
-      }
-
-      const sentinel = typeof Symbol === 'function' ? Symbol('zenithNadirMissing') : '__sphere10_zenith_nadir_missing__';
-      const storedCombined = store.get('showZenithNadir', sentinel);
-      const combinedBoolean = normalizeStoredBoolean(storedCombined);
-      if (typeof combinedBoolean === 'boolean') {
-        return combinedBoolean;
-      }
-
-      const legacyZenith = store.get('showZenith', sentinel);
-      const legacyNadir = store.get('showNadir', sentinel);
-      if (legacyZenith === sentinel && legacyNadir === sentinel) {
-        return undefined;
-      }
-
-      const legacyZenithBool = normalizeStoredBoolean(legacyZenith) === true;
-      const legacyNadirBool = normalizeStoredBoolean(legacyNadir) === true;
-      const mergedValue = legacyZenithBool || legacyNadirBool;
-
-      setStoredBoolean('showZenithNadir', mergedValue);
-
-      if (typeof store.remove === 'function') {
-        if (legacyZenith !== sentinel) {
-          store.remove('showZenith');
-        }
-        if (legacyNadir !== sentinel) {
-          store.remove('showNadir');
-        }
-      }
-
-      return mergedValue;
+    currentValue = getStoredBoolean(key, element.checked ?? defaultValue);
+    element.checked = currentValue;
+    if (typeof onChange === 'function') {
+      onChange(currentValue, true);
     }
 
-    function updateAllUI() {
-      // スライダー値の更新
-      if (rotationZSlider) {
-        rotationZSlider.value = (rotationZ * 180 / Math.PI).toFixed(0);
-        rotationZVal.textContent = rotationZSlider.value + "°";
-      }
-      if (rotationYSlider) {
-        rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
-        rotationYVal.textContent = rotationYSlider.value + "°";
-      }
-      if (rotationEWSlider) {
-        rotationEWSlider.value = (rotationEW * 180 / Math.PI).toFixed(0);
-        rotationEWVal.textContent = rotationEWSlider.value + "°";
-      }
-      // 緯度入力の更新
-      const latitudeInput = document.getElementById("latitudeInput");
-      if (latitudeInput) {
-        latitudeInput.value = latitude.toFixed(1);
-      }
-    }
-
-    const playButton = document.getElementById('playButton');
-    const pauseButton = document.getElementById('pauseButton');
-    const fastForwardButton = document.getElementById('fastForwardButton');
-    const reverseButton = document.getElementById('reverseButton');
-
-    const datetimeInput = document.getElementById('datetimeInput');
-    const locationInput = document.getElementById('locationInput');
-    const setLocationButton = document.getElementById('setLocationButton');
-
-    // ★★★ 恒星表示・裏側描画のフラグ ★★★
-    let starsVisible = true;
-    let showBackSide = false;
-    const starToggle = document.getElementById('starToggle');
-    starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); });
-    const backToggle = document.getElementById('backToggle');
-    backToggle.addEventListener('change', () => { showBackSide = backToggle.checked; saveSettings(); });
-
-    // ★★★ 惑星ラベルの表示フラグ ★★★
-    let planetLabelsVisible = false;
-    const planetLabelToggle = document.getElementById('planetLabelToggle');
-    planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); });
-
-    // ★★★ 表示項目のトグル ★★★
-    const horizonToggle = document.getElementById('horizonToggle');
-    const meridianToggle = document.getElementById('meridianToggle');
-    const equatorToggle = document.getElementById('equatorToggle');
-    const eclipticToggle = document.getElementById('eclipticToggle');
-    const eclipticBandToggle = document.getElementById('eclipticBandToggle');
-    const ra12LinesToggle = document.getElementById('ra12LinesToggle');
-    const declinationLinesToggle = document.getElementById('declinationLinesToggle');
-    const altGridToggle = document.getElementById('altGridToggle');
-    const zenithNadirToggle = document.getElementById('zenithNadirToggle');
-    let horizonVisible = horizonToggle.checked;
-    let meridianVisible = meridianToggle.checked;
-    let equatorVisible = equatorToggle.checked;
-    let eclipticVisible = eclipticToggle.checked;
-    let eclipticBandVisible = eclipticBandToggle.checked;
-    let ra12LinesVisible = ra12LinesToggle.checked;
-    let declinationLinesVisible = declinationLinesToggle.checked;
-    showAltGrid = setupPersistentToggle(altGridToggle, 'showAltGrid', showAltGrid, (value, isInitial) => {
-      showAltGrid = value;
-      if (!isInitial) {
-        saveSettings();
+    element.addEventListener('change', () => {
+      const nextValue = element.checked;
+      setStoredBoolean(key, nextValue);
+      if (typeof onChange === 'function') {
+        onChange(nextValue, false);
       }
     });
-    const migratedZenithNadir = migrateZenithNadirPreference();
-    if (typeof migratedZenithNadir === 'boolean') {
-      showZenithNadir = migratedZenithNadir;
+
+    return currentValue;
+  }
+
+  function migrateZenithNadirPreference() {
+    if (typeof store === 'undefined' || !store || typeof store.get !== 'function') {
+      return undefined;
     }
-    showZenithNadir = setupPersistentToggle(zenithNadirToggle, 'showZenithNadir', showZenithNadir, (value, isInitial) => {
-      showZenithNadir = value;
-      if (!isInitial) {
-        saveSettings();
+
+    const sentinel = typeof Symbol === 'function' ? Symbol('zenithNadirMissing') : '__sphere10_zenith_nadir_missing__';
+    const storedCombined = store.get('showZenithNadir', sentinel);
+    const combinedBoolean = normalizeStoredBoolean(storedCombined);
+    if (typeof combinedBoolean === 'boolean') {
+      return combinedBoolean;
+    }
+
+    const legacyZenith = store.get('showZenith', sentinel);
+    const legacyNadir = store.get('showNadir', sentinel);
+    if (legacyZenith === sentinel && legacyNadir === sentinel) {
+      return undefined;
+    }
+
+    const legacyZenithBool = normalizeStoredBoolean(legacyZenith) === true;
+    const legacyNadirBool = normalizeStoredBoolean(legacyNadir) === true;
+    const mergedValue = legacyZenithBool || legacyNadirBool;
+
+    setStoredBoolean('showZenithNadir', mergedValue);
+
+    if (typeof store.remove === 'function') {
+      if (legacyZenith !== sentinel) {
+        store.remove('showZenith');
       }
-    });
-    horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); });
-    meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); });
-    equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); });
-    eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); });
-    eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); });
-    ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); });
-    declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); });
-
-    // ★★★ 方角表示設定 ★★★
-    const directionToggle = document.getElementById('directionToggle');
-    const directionTextSizeSlider = document.getElementById('directionTextSize');
-    const directionTextSizeVal = document.getElementById('directionTextSizeVal');
-    const directionTextColorPicker = document.getElementById('directionTextColor');
-    let directionVisible = directionToggle.checked;
-    let directionTextSize = parseInt(directionTextSizeSlider.value, 10);
-    let directionTextColor = directionTextColorPicker.value;
-    directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); });
-    directionTextSizeSlider.addEventListener('input', () => {
-      directionTextSize = parseInt(directionTextSizeSlider.value, 10);
-      directionTextSizeVal.textContent = directionTextSizeSlider.value + "px";
-    });
-    directionTextColorPicker.addEventListener('input', () => { directionTextColor = directionTextColorPicker.value; });
-
-    // ★★★ 新規追加: 東西反転トグル ★★★
-    let reverseEastWest = false;
-    const reverseEWToggle = document.getElementById('reverseEWToggle');
-    reverseEWToggle.addEventListener('change', () => { reverseEastWest = reverseEWToggle.checked; saveSettings(); });
-
-    // ★★★ 設定読み込みとUI同期 ★★★
-    loadSettings(); // 保存された設定を読み込み
-
-    const altGridStoreSentinel = typeof Symbol === 'function' ? Symbol('altGridMissing') : '__sphere10_alt_missing__';
-    let storedAltGrid = altGridStoreSentinel;
-    if (typeof store !== 'undefined' && store && typeof store.get === 'function') {
-      storedAltGrid = store.get('showAltGrid', altGridStoreSentinel);
+      if (legacyNadir !== sentinel) {
+        store.remove('showNadir');
+      }
     }
 
-    if (storedAltGrid === altGridStoreSentinel) {
-      setStoredBoolean('showAltGrid', showAltGrid);
-    } else if (typeof storedAltGrid === 'boolean') {
-      showAltGrid = storedAltGrid;
-    } else if (storedAltGrid === 'true') {
-      showAltGrid = true;
-    } else if (storedAltGrid === 'false') {
-      showAltGrid = false;
+    return mergedValue;
+  }
+
+  function updateAllUI() {
+    // スライダー値の更新
+    if (rotationZSlider) {
+      rotationZSlider.value = (rotationZ * 180 / Math.PI).toFixed(0);
+      rotationZVal.textContent = rotationZSlider.value + "°";
     }
+    if (rotationYSlider) {
+      rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
+      rotationYVal.textContent = rotationYSlider.value + "°";
+    }
+    if (rotationEWSlider) {
+      rotationEWSlider.value = (rotationEW * 180 / Math.PI).toFixed(0);
+      rotationEWVal.textContent = rotationEWSlider.value + "°";
+    }
+    // 緯度入力の更新
+    const latitudeInput = document.getElementById("latitudeInput");
+    if (latitudeInput) {
+      latitudeInput.value = latitude.toFixed(1);
+    }
+  }
 
-    updateAllUI();  // UIに反映
-    
-    // チェックボックスの状態を復元
-    if (horizonToggle) horizonToggle.checked = horizonVisible;
-    if (meridianToggle) meridianToggle.checked = meridianVisible;
-    if (equatorToggle) equatorToggle.checked = equatorVisible;
-    if (eclipticToggle) eclipticToggle.checked = eclipticVisible;
-    if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
-    if (ra12LinesToggle) ra12LinesToggle.checked = ra12LinesVisible;
-    if (declinationLinesToggle) declinationLinesToggle.checked = declinationLinesVisible;
-    if (starToggle) starToggle.checked = starsVisible;
-    if (backToggle) backToggle.checked = showBackSide;
-    if (planetLabelToggle) planetLabelToggle.checked = planetLabelsVisible;
-    if (reverseEWToggle) reverseEWToggle.checked = reverseEastWest;
-    if (altGridToggle) altGridToggle.checked = showAltGrid;
-    if (zenithNadirToggle) zenithNadirToggle.checked = showZenithNadir;
-    if (directionToggle) directionToggle.checked = directionVisible;
+  const playButton = document.getElementById('playButton');
+  const pauseButton = document.getElementById('pauseButton');
+  const fastForwardButton = document.getElementById('fastForwardButton');
+  const reverseButton = document.getElementById('reverseButton');
 
-    datetimeInput.addEventListener('change', () => {
+  const datetimeInput = document.getElementById('datetimeInput');
+  const locationInput = document.getElementById('locationInput');
+  const setLocationButton = document.getElementById('setLocationButton');
+
+  // ★★★ 恒星表示・裏側描画のフラグ ★★★
+  let starsVisible = true;
+  let showBackSide = false;
+  let applyDepthShading = false; // ★ ADDED: 奥行き暗化モード（裏側描画と連動）
+  const starToggle = document.getElementById('starToggle');
+  starToggle.addEventListener('change', () => { starsVisible = starToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+  const backToggle = document.getElementById('backToggle');
+  backToggle.addEventListener('change', () => {
+    showBackSide = backToggle.checked;
+    applyDepthShading = backToggle.checked; // ★ ADDED: 裏側描画と奥行き暗化を連動
+    saveSettings();
+    requestRender();
+  });
+
+  // ★★★ 惑星ラベルの表示フラグ ★★★
+  let planetLabelsVisible = false;
+  const planetLabelToggle = document.getElementById('planetLabelToggle');
+  planetLabelToggle.addEventListener('change', () => { planetLabelsVisible = planetLabelToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+
+  // ★★★ 恒星名表示フラグ ★★★
+  let starNamesVisible = false;
+  const starNamesToggle = document.getElementById('starNamesToggle');
+  starNamesToggle.addEventListener('change', () => { starNamesVisible = starNamesToggle.checked; saveSettings(); requestRender(); });
+
+  // ★★★ 白道表示フラグ ★★★
+  const lunarOrbitToggle = document.getElementById('lunarOrbitToggle');
+  let lunarOrbitVisible = lunarOrbitToggle ? lunarOrbitToggle.checked : false;
+  if (lunarOrbitToggle) {
+    lunarOrbitToggle.addEventListener('change', () => { lunarOrbitVisible = lunarOrbitToggle.checked; saveSettings(); requestRender(); });
+  }
+
+  // ★★★ 表示項目のトグル ★★★
+  const horizonToggle = document.getElementById('horizonToggle');
+  const meridianToggle = document.getElementById('meridianToggle');
+  const primeVerticalToggle = document.getElementById('primeVerticalToggle');
+  const equatorToggle = document.getElementById('equatorToggle');
+  const eclipticToggle = document.getElementById('eclipticToggle');
+  const eclipticBandToggle = document.getElementById('eclipticBandToggle');
+  const ra12LinesToggle = document.getElementById('ra12LinesToggle');
+  const declinationLinesToggle = document.getElementById('declinationLinesToggle');
+  const altGridToggle = document.getElementById('altGridToggle');
+  const zenithNadirToggle = document.getElementById('zenithNadirToggle');
+  let horizonVisible = horizonToggle.checked;
+  let meridianVisible = meridianToggle.checked;
+  let primeVerticalVisible = primeVerticalToggle.checked;
+  let equatorVisible = equatorToggle.checked;
+  let eclipticVisible = eclipticToggle.checked;
+  let eclipticBandVisible = eclipticBandToggle.checked;
+  let ra12LinesVisible = ra12LinesToggle.checked;
+  let declinationLinesVisible = declinationLinesToggle.checked;
+  showAltGrid = setupPersistentToggle(altGridToggle, 'showAltGrid', showAltGrid, (value, isInitial) => {
+    showAltGrid = value;
+    if (!isInitial) {
+      saveSettings();
+      requestRender();  // ★ ADDED: Request re-render when toggle changes
+    }
+  });
+  const migratedZenithNadir = migrateZenithNadirPreference();
+  if (typeof migratedZenithNadir === 'boolean') {
+    showZenithNadir = migratedZenithNadir;
+  }
+  showZenithNadir = setupPersistentToggle(zenithNadirToggle, 'showZenithNadir', showZenithNadir, (value, isInitial) => {
+    showZenithNadir = value;
+    if (!isInitial) {
+      saveSettings();
+      requestRender();  // ★ ADDED: Request re-render when toggle changes
+    }
+  });
+  horizonToggle.addEventListener('change', () => { horizonVisible = horizonToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+  meridianToggle.addEventListener('change', () => { meridianVisible = meridianToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+  primeVerticalToggle.addEventListener('change', () => { primeVerticalVisible = primeVerticalToggle.checked; saveSettings(); requestRender(); }); // ★ ADDED
+  equatorToggle.addEventListener('change', () => { equatorVisible = equatorToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+  eclipticToggle.addEventListener('change', () => { eclipticVisible = eclipticToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+  eclipticBandToggle.addEventListener('change', () => { eclipticBandVisible = eclipticBandToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+  ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+  declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+
+  // ★★★ 方角表示設定 ★★★
+  const directionToggle = document.getElementById('directionToggle');
+  const directionTextSizeSlider = document.getElementById('directionTextSize');
+  const directionTextSizeVal = document.getElementById('directionTextSizeVal');
+  const directionTextColorPicker = document.getElementById('directionTextColor');
+  let directionVisible = directionToggle.checked;
+  let directionTextSize = parseInt(directionTextSizeSlider.value, 10);
+  let directionTextColor = directionTextColorPicker.value;
+  directionToggle.addEventListener('change', () => { directionVisible = directionToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+  directionTextSizeSlider.addEventListener('input', () => {
+    directionTextSize = parseInt(directionTextSizeSlider.value, 10);
+    directionTextSizeVal.textContent = directionTextSizeSlider.value + "px";
+  });
+  directionTextColorPicker.addEventListener('input', () => { directionTextColor = directionTextColorPicker.value; });
+
+  // ★★★ 新規追加: 東西反転トグル ★★★
+  let reverseEastWest = false;
+  const reverseEWToggle = document.getElementById('reverseEWToggle');
+  reverseEWToggle.addEventListener('change', () => { reverseEastWest = reverseEWToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
+
+  // ★★★ 設定読み込みとUI同期 ★★★
+  loadSettings(); // 保存された設定を読み込み
+
+  const altGridStoreSentinel = typeof Symbol === 'function' ? Symbol('altGridMissing') : '__sphere10_alt_missing__';
+  let storedAltGrid = altGridStoreSentinel;
+  if (typeof store !== 'undefined' && store && typeof store.get === 'function') {
+    storedAltGrid = store.get('showAltGrid', altGridStoreSentinel);
+  }
+
+  if (storedAltGrid === altGridStoreSentinel) {
+    setStoredBoolean('showAltGrid', showAltGrid);
+  } else if (typeof storedAltGrid === 'boolean') {
+    showAltGrid = storedAltGrid;
+  } else if (storedAltGrid === 'true') {
+    showAltGrid = true;
+  } else if (storedAltGrid === 'false') {
+    showAltGrid = false;
+  }
+
+  updateAllUI();  // UIに反映
+
+  // チェックボックスの状態を復元
+  if (horizonToggle) horizonToggle.checked = horizonVisible;
+  if (meridianToggle) meridianToggle.checked = meridianVisible;
+  if (primeVerticalToggle) primeVerticalToggle.checked = primeVerticalVisible;
+  if (equatorToggle) equatorToggle.checked = equatorVisible;
+  if (eclipticToggle) eclipticToggle.checked = eclipticVisible;
+  if (eclipticBandToggle) eclipticBandToggle.checked = eclipticBandVisible;
+  if (lunarOrbitToggle) lunarOrbitToggle.checked = lunarOrbitVisible;
+  if (ra12LinesToggle) ra12LinesToggle.checked = ra12LinesVisible;
+  if (declinationLinesToggle) declinationLinesToggle.checked = declinationLinesVisible;
+  if (starToggle) starToggle.checked = starsVisible;
+  if (backToggle) backToggle.checked = showBackSide;
+  if (planetLabelToggle) planetLabelToggle.checked = planetLabelsVisible;
+  if (reverseEWToggle) reverseEWToggle.checked = reverseEastWest;
+  if (altGridToggle) altGridToggle.checked = showAltGrid;
+  if (zenithNadirToggle) zenithNadirToggle.checked = showZenithNadir;
+  if (directionToggle) directionToggle.checked = directionVisible;
+
+  // ★★★ 日時変更ハンドラー（changeとinputの両方を監視） ★★★
+  if (datetimeInput) {
+    const handleDateTimeChange = () => {
       const userDate = new Date(datetimeInput.value);
       if (!isNaN(userDate)) {
         currentDate = userDate;
         updateAllPositions();
+        requestRender();
       }
-    });
+    };
 
-    setLocationButton.addEventListener('click', async () => {
-      const city = locationInput.value.trim();
-      if (city) {
-        try {
-          const response = await fetch('./data/location.json');
-          if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
-          const locData = await response.json();
-          if (locData[city]) {
-            latitude = locData[city].latitude;
-            longitude = locData[city].longitude;
-            // 緯度入力フィールドも同期更新
-            const latitudeInput = document.getElementById("latitudeInput");
-            if (latitudeInput) {
-              latitudeInput.value = latitude.toFixed(1);
-            }
-            updateAllPositions();
-          } else {
-            console.error("指定された都市がlocation.jsonにありません");
-          }
-        } catch (e) {
-          console.error("location.json取得エラー:", e);
-        }
-      }
-    });
+    datetimeInput.addEventListener('change', handleDateTimeChange);
+    datetimeInput.addEventListener('input', handleDateTimeChange);
+  }
 
-    // ★★★ 緯度調節機能 ★★★
-    const latitudeInput = document.getElementById("latitudeInput");
-    latitudeInput.addEventListener("change", () => {
-      let newLat = parseFloat(latitudeInput.value);
-      if (isNaN(newLat)) {
-        newLat = 35.4; // デフォルト値に戻す
-      }
-      if (newLat > 89.9999) newLat = 89.9999;
-      if (newLat < -89.9999) newLat = -89.9999;
-      latitude = newLat;
-      latitudeInput.value = latitude.toFixed(1);
-      updateAllPositions();
-      saveSettings();
-    });
+  // ★★★ Nominatim API統合と地名検索機能 ★★★
+  const placeInput = document.getElementById("placeInput");
+  const searchPlaceButton = document.getElementById("searchPlaceButton");
 
-    // 初期値の設定
-    latitudeInput.value = latitude.toFixed(1);
+  let lastSearchTime = 0;
+  const SEARCH_RATE_LIMIT = 1000; // 1秒に1リクエスト
 
-    rotationZSlider.addEventListener('input', () => {
-      rotationZ = rotationZSlider.value * Math.PI / 180;
-      rotationZVal.textContent = rotationZSlider.value + "°";
-      window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
-      saveSettings();
-    });
-    rotationYSlider.addEventListener('input', () => {
-      rotationY = rotationYSlider.value * Math.PI / 180;
-      rotationYVal.textContent = rotationYSlider.value + "°";
-      window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
-      saveSettings();
-    });
-    rotationEWSlider.addEventListener('input', () => {
-      rotationEW = rotationEWSlider.value * Math.PI / 180;
-      rotationEWVal.textContent = rotationEWSlider.value + "°";
-      window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
-      saveSettings();
-    });
-
-    // ★★★ マウスドラッグによる回転操作 ★★★
-    let isDragging = false;
-    let lastMouseX, lastMouseY;
-    canvas.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    });
-    canvas.addEventListener('mousemove', (e) => {
-      if (isDragging) {
-        const dx = e.clientX - lastMouseX;
-        const dy = e.clientY - lastMouseY;
-        // 感度は適宜調整（ここでは 0.005 ラジアン/ピクセル）
-        rotationZ += dx * 0.005;
-        rotationY += dy * 0.005;
-        window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
-        // スライダー表示の更新
-        rotationZSlider.value = (rotationZ * 180 / Math.PI).toFixed(0);
-        rotationZVal.textContent = rotationZSlider.value + "°";
-        rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
-        rotationYVal.textContent = rotationYSlider.value + "°";
-      }
-    });
-    canvas.addEventListener('mouseup', () => { 
-      if (isDragging) {
-        isDragging = false; 
-        saveSettings(); // ドラッグ終了時に保存
-      }
-    });
-    canvas.addEventListener('mouseleave', () => { 
-      if (isDragging) {
-        isDragging = false; 
-        saveSettings(); // ドラッグ終了時に保存
-      }
-    });
-
-    // ★★★ パネル折りたたみボタン ★★★
-    const controls = document.querySelector('.controls');
-    const togglePanelButton = document.getElementById('togglePanelButton');
-    togglePanelButton.addEventListener('click', () => { 
-      controls.classList.toggle('minimized'); 
-      togglePanelButton.textContent = controls.classList.contains('minimized') ? '+' : '−';
-    });
-
-    // ★★★ セクション折りたたみ機能 ★★★
-    function initSectionToggles() {
-      const sectionHeaders = document.querySelectorAll('.section-header');
-      
-      // 初期状態をストアから読み込み、デフォルトは全て展開
-      const defaultStates = {
-        rotation: true,
-        indicator: true,
-        option: true,
-        planets: true,
-        location: true
-      };
-      let sectionStates = { ...defaultStates };
-
-      if (typeof store !== 'undefined') {
-        const storedStates = store.get('sectionStates');
-        if (storedStates) {
-          try {
-            sectionStates = { ...defaultStates, ...JSON.parse(storedStates) };
-          } catch (error) {
-            console.warn('セクション状態の読み込みに失敗しました:', error);
-          }
-        }
-      }
-
-      sectionHeaders.forEach(header => {
-        const section = header.closest('.section');
-        const sectionName = header.dataset.section;
-        const content = section.querySelector('.section-content');
-        
-        // 初期状態の設定
-        if (!sectionStates[sectionName]) {
-          section.classList.add('collapsed');
-          content.classList.add('collapsed');
-        }
-
-        // タッチとクリックイベントの追加（タッチデバイス対応）
-        const toggleSection = () => {
-          const isCollapsed = section.classList.contains('collapsed');
-          
-          section.classList.toggle('collapsed');
-          content.classList.toggle('collapsed');
-          
-          // 状態をストアに保存
-          sectionStates[sectionName] = isCollapsed; // 反転した値
-          if (typeof store !== 'undefined') {
-            store.set('sectionStates', JSON.stringify(sectionStates));
-          }
+  // フォールバック用ローカルJSONから検索
+  async function searchLocalLocation(placeName) {
+    try {
+      const response = await fetch('./data/location.json');
+      if (!response.ok) return null;
+      const locData = await response.json();
+      if (locData[placeName]) {
+        return {
+          lat: locData[placeName].latitude,
+          lon: locData[placeName].longitude,
+          display_name: placeName
         };
+      }
+    } catch (e) {
+      console.warn('location.jsonからの検索に失敗しました:', e);
+    }
+    return null;
+  }
 
-        // タッチデバイス対応: イベント重複を防ぐ統一ハンドラー
-        let touchHandled = false;
-        
-        header.addEventListener('touchstart', (e) => {
-          touchHandled = true;
-          toggleSection();
-          e.preventDefault(); // clickイベントの発火を防ぐ
-        });
-        
-        header.addEventListener('click', (e) => {
-          if (!touchHandled) {
-            toggleSection();
-          }
-          touchHandled = false; // 次のイベントのためにリセット
-        });
+  // Nominatim APIで検索
+  async function searchNominatim(placeName) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(placeName)}&format=json&limit=1`;
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Sphere10 Celestial Sphere App (astrogrammar.com)'
+        }
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lon: parseFloat(data[0].lon),
+          display_name: data[0].display_name
+        };
+      }
+    } catch (error) {
+      console.error('Nominatim検索エラー:', error);
+    }
+    return null;
+  }
+
+  searchPlaceButton.addEventListener('click', async () => {
+    const placeName = placeInput.value.trim();
+    if (!placeName) return;
+
+    // レート制限
+    const now = Date.now();
+    const timeSinceLastSearch = now - lastSearchTime;
+    if (timeSinceLastSearch < SEARCH_RATE_LIMIT) {
+      alert(`検索は1秒に1回までです。あと${Math.ceil((SEARCH_RATE_LIMIT - timeSinceLastSearch) / 1000)}秒お待ちください。`);
+      return;
+    }
+    lastSearchTime = now;
+
+    // まずローカルJSONで検索
+    let result = await searchLocalLocation(placeName);
+
+    // ローカルになければNominatimで検索
+    if (!result) {
+      result = await searchNominatim(placeName);
     }
 
-    // セクション折りたたみ機能を初期化
-    initSectionToggles();
+    if (result) {
+      latitude = result.lat;
+      longitude = result.lon;
 
-    // ★★★ 隠しデバッグモード実装 ★★★
-    let debugMode = false;
-    let debugPanel = null;
-    let fpsHistory = [];
-    let frameCount = 0;
-    let lastFpsTime = performance.now();
+      // UI更新
+      latitudeInput.value = latitude.toFixed(4);
+      longitudeInput.value = longitude.toFixed(4);
 
-    function createDebugPanel() {
-      if (debugPanel) return debugPanel;
-      
-      debugPanel = document.createElement('div');
-      debugPanel.id = 'debugPanel';
-      debugPanel.innerHTML = `
+      // 天球更新
+      updateAllPositions();
+      saveSettings();
+
+      // ★★★ 保存された場所リストに追加 ★★★
+      const locationName = placeName;
+      const existingIndex = savedLocations.findIndex(loc => loc.name === locationName);
+      if (existingIndex === -1) {
+        // 新規追加
+        savedLocations.push({
+          name: locationName,
+          lat: latitude,
+          lon: longitude
+        });
+        // 最大10件まで保存
+        if (savedLocations.length > 10) {
+          savedLocations.shift();
+        }
+        saveSettings();
+        renderSavedLocations();
+      }
+
+      alert(`場所を設定しました: ${result.display_name}`);
+    } else {
+      alert(`「${placeName}」が見つかりませんでした。`);
+    }
+  });
+
+  // ★★★ 保存された場所リストの描画 ★★★
+  function renderSavedLocations() {
+    const savedLocationsList = document.getElementById('savedLocationsList');
+    if (!savedLocationsList) return;
+
+    savedLocationsList.innerHTML = '';
+
+    savedLocations.forEach((loc, index) => {
+      const btn = document.createElement('button');
+      btn.textContent = loc.name;
+      btn.style.cssText = 'padding: 3px 8px; font-size: 0.85em; cursor: pointer; background: #444; color: #fff; border: 1px solid #666; border-radius: 3px;';
+      btn.addEventListener('click', () => {
+        latitude = loc.lat;
+        longitude = loc.lon;
+        latitudeInput.value = latitude.toFixed(4);
+        longitudeInput.value = longitude.toFixed(4);
+        updateAllPositions();
+        saveSettings();
+      });
+
+      // 削除ボタン
+      const deleteBtn = document.createElement('span');
+      deleteBtn.textContent = '×';
+      deleteBtn.style.cssText = 'margin-left: 5px; cursor: pointer; color: #f88;';
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        savedLocations.splice(index, 1);
+        saveSettings();
+        renderSavedLocations();
+      });
+
+      btn.appendChild(deleteBtn);
+      savedLocationsList.appendChild(btn);
+    });
+  }
+
+  // 初期表示
+  renderSavedLocations();
+
+  // ★★★ 緯度調節機能 ★★★
+  const latitudeInput = document.getElementById("latitudeInput");
+  latitudeInput.addEventListener("change", () => {
+    let newLat = parseFloat(latitudeInput.value);
+    if (isNaN(newLat)) {
+      newLat = 35.4437; // デフォルト値に戻す
+    }
+    if (newLat > 89.9999) newLat = 89.9999;
+    if (newLat < -89.9999) newLat = -89.9999;
+    latitude = newLat;
+    latitudeInput.value = latitude.toFixed(4);
+    updateAllPositions();
+    saveSettings();
+  });
+
+  // 初期値の設定
+  latitudeInput.value = latitude.toFixed(4);
+
+  // ★★★ 経度調節機能 ★★★
+  const longitudeInput = document.getElementById("longitudeInput");
+  longitudeInput.addEventListener("change", () => {
+    let newLon = parseFloat(longitudeInput.value);
+    if (isNaN(newLon)) {
+      newLon = 139.6380; // デフォルト値に戻す
+    }
+    if (newLon > 180) newLon = 180;
+    if (newLon < -180) newLon = -180;
+    longitude = newLon;
+    longitudeInput.value = longitude.toFixed(4);
+    updateAllPositions();
+    saveSettings();
+  });
+
+  // 初期値の設定
+  longitudeInput.value = longitude.toFixed(4);
+
+  rotationZSlider.addEventListener('input', () => {
+    rotationZ = rotationZSlider.value * Math.PI / 180;
+    rotationZVal.textContent = rotationZSlider.value + "°";
+    window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
+    saveSettings();
+    requestRender(); // ★ ADDED (Phase 1): Request render on user input
+  });
+  rotationYSlider.addEventListener('input', () => {
+    rotationY = rotationYSlider.value * Math.PI / 180;
+    rotationYVal.textContent = rotationYSlider.value + "°";
+    window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
+    saveSettings();
+    requestRender(); // ★ ADDED (Phase 1): Request render on user input
+  });
+  rotationEWSlider.addEventListener('input', () => {
+    rotationEW = rotationEWSlider.value * Math.PI / 180;
+    rotationEWVal.textContent = rotationEWSlider.value + "°";
+    window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
+    saveSettings();
+    requestRender(); // ★ ADDED (Phase 1): Request render on user input
+  });
+
+  // ★★★ マウスドラッグによる回転操作 ★★★
+  let isDragging = false;
+  let lastMouseX, lastMouseY;
+  canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+  canvas.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      const dx = e.clientX - lastMouseX;
+      const dy = e.clientY - lastMouseY;
+      // 感度は適宜調整（ここでは 0.005 ラジアン/ピクセル）
+      rotationZ += dx * CONSTANTS.MOUSE_ROTATION_SENSITIVITY;
+      rotationY += dy * CONSTANTS.MOUSE_ROTATION_SENSITIVITY;
+      window.lastRotationTime = Date.now(); // ★★★ 回転検出用タイムスタンプ ★★★
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+      // スライダー表示の更新
+      rotationZSlider.value = (rotationZ * 180 / Math.PI).toFixed(0);
+      rotationZVal.textContent = rotationZSlider.value + "°";
+      rotationYSlider.value = (rotationY * 180 / Math.PI).toFixed(0);
+      rotationYVal.textContent = rotationYSlider.value + "°";
+      requestRender(); // ★ ADDED (Phase 1 fix): Request render on mouse drag
+    }
+  });
+  canvas.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      saveSettings(); // ドラッグ終了時に保存
+    }
+  });
+  canvas.addEventListener('mouseleave', () => {
+    if (isDragging) {
+      isDragging = false;
+      saveSettings(); // ドラッグ終了時に保存
+    }
+  });
+
+  // ★★★ パネル折りたたみボタン ★★★
+  const controls = document.querySelector('.controls');
+  const togglePanelButton = document.getElementById('togglePanelButton');
+  togglePanelButton.addEventListener('click', () => {
+    controls.classList.toggle('minimized');
+    togglePanelButton.textContent = controls.classList.contains('minimized') ? '+' : '−';
+  });
+
+  // ★★★ セクション折りたたみ機能 ★★★
+  function initSectionToggles() {
+    const sectionHeaders = document.querySelectorAll('.section-header');
+
+    // 初期状態をストアから読み込み、デフォルトは全て展開
+    const defaultStates = {
+      rotation: true,
+      indicator: true,
+      option: true,
+      planets: true,
+      location: true
+    };
+    let sectionStates = { ...defaultStates };
+
+    if (typeof store !== 'undefined') {
+      const storedStates = store.get('sectionStates');
+      if (storedStates) {
+        try {
+          sectionStates = { ...defaultStates, ...JSON.parse(storedStates) };
+        } catch (error) {
+          console.warn('セクション状態の読み込みに失敗しました:', error);
+        }
+      }
+    }
+
+    sectionHeaders.forEach(header => {
+      const section = header.closest('.section');
+      const sectionName = header.dataset.section;
+      const content = section.querySelector('.section-content');
+
+      // 初期状態の設定
+      if (!sectionStates[sectionName]) {
+        section.classList.add('collapsed');
+        content.classList.add('collapsed');
+      }
+
+      // タッチとクリックイベントの追加（タッチデバイス対応）
+      const toggleSection = () => {
+        const isCollapsed = section.classList.contains('collapsed');
+
+        section.classList.toggle('collapsed');
+        content.classList.toggle('collapsed');
+
+        // 状態をストアに保存
+        sectionStates[sectionName] = isCollapsed; // 反転した値
+        if (typeof store !== 'undefined') {
+          store.set('sectionStates', JSON.stringify(sectionStates));
+        }
+      };
+
+      // タッチデバイス対応: イベント重複を防ぐ統一ハンドラー
+      let touchHandled = false;
+
+      header.addEventListener('touchstart', (e) => {
+        touchHandled = true;
+        toggleSection();
+        e.preventDefault(); // clickイベントの発火を防ぐ
+      });
+
+      header.addEventListener('click', (e) => {
+        if (!touchHandled) {
+          toggleSection();
+        }
+        touchHandled = false; // 次のイベントのためにリセット
+      });
+    });
+  }
+
+  // セクション折りたたみ機能を初期化
+  initSectionToggles();
+
+  // ★★★ 隠しデバッグモード実装 ★★★
+  let debugMode = false;
+  let debugPanel = null;
+  let fpsHistory = [];
+  let frameCount = 0;
+  let lastFpsTime = performance.now();
+
+  function createDebugPanel() {
+    if (debugPanel) return debugPanel;
+
+    debugPanel = document.createElement('div');
+    debugPanel.id = 'debugPanel';
+    debugPanel.innerHTML = `
         <div style="
           position: fixed; 
           top: 80px; 
@@ -627,382 +948,544 @@ function initApp() {
           </div>
         </div>
       `;
-      document.body.appendChild(debugPanel);
-      return debugPanel;
+    document.body.appendChild(debugPanel);
+    return debugPanel;
+  }
+
+  function updateDebugInfo() {
+    if (!debugMode || !debugPanel) return;
+
+    frameCount++;
+    const now = performance.now();
+
+    // FPS計算
+    if (now - lastFpsTime >= 1000) {
+      const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+      document.getElementById('debugFPS').textContent = `FPS: ${fps}`;
+      frameCount = 0;
+      lastFpsTime = now;
+
+      // FPS履歴
+      fpsHistory.push(fps);
+      if (fpsHistory.length > 10) fpsHistory.shift();
     }
 
-    function updateDebugInfo() {
-      if (!debugMode || !debugPanel) return;
-
-      frameCount++;
-      const now = performance.now();
-      
-      // FPS計算
-      if (now - lastFpsTime >= 1000) {
-        const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
-        document.getElementById('debugFPS').textContent = `FPS: ${fps}`;
-        frameCount = 0;
-        lastFpsTime = now;
-        
-        // FPS履歴
-        fpsHistory.push(fps);
-        if (fpsHistory.length > 10) fpsHistory.shift();
-      }
-
-      // メモリ使用量 (対応ブラウザのみ)
-      if (performance.memory) {
-        const usedMB = Math.round(performance.memory.usedJSHeapSize / 1048576);
-        document.getElementById('debugMemory').textContent = `Memory: ${usedMB}MB`;
-      }
-
-      // 回転状態
-      const rotX = (rotationZ * 180 / Math.PI).toFixed(1);
-      const rotY = (rotationY * 180 / Math.PI).toFixed(1);
-      const rotEW = (rotationEW * 180 / Math.PI).toFixed(1);
-      document.getElementById('debugRotation').textContent = `R: ${rotX}°/${rotY}°/${rotEW}°`;
+    // メモリ使用量 (対応ブラウザのみ)
+    if (performance.memory) {
+      const usedMB = Math.round(performance.memory.usedJSHeapSize / 1048576);
+      document.getElementById('debugMemory').textContent = `Memory: ${usedMB}MB`;
     }
 
-    // 隠しキー操作の検出 (Ctrl+Shift+D)
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.code === 'KeyX') {
-        e.preventDefault();
-        debugMode = !debugMode;
-        
-        if (debugMode) {
-          createDebugPanel();
-          console.log('🔬 Sphere10 Debug Mode: ON');
-        } else {
-          if (debugPanel) {
-            debugPanel.remove();
-            debugPanel = null;
-          }
-          console.log('🔬 Sphere10 Debug Mode: OFF');
-        }
-      }
-    });
+    // 回転状態
+    const rotX = (rotationZ * 180 / Math.PI).toFixed(1);
+    const rotY = (rotationY * 180 / Math.PI).toFixed(1);
+    const rotEW = (rotationEW * 180 / Math.PI).toFixed(1);
+    document.getElementById('debugRotation').textContent = `R: ${rotX}°/${rotY}°/${rotEW}°`;
+  }
 
-    // ★★★ Control Panel ドラッグ移動機能 ★★★
-    let isDraggingPanel = false;
-    let panelOffsetX = 0;
-    let panelOffsetY = 0;
-    
-    const controlHeader = document.querySelector('.control-header');
-    
-    controlHeader.addEventListener('mousedown', (e) => {
-      // トグルボタンクリック時はドラッグしない
-      if (e.target === togglePanelButton) return;
-      
-      isDraggingPanel = true;
-      const rect = controls.getBoundingClientRect();
-      panelOffsetX = e.clientX - rect.left;
-      panelOffsetY = e.clientY - rect.top;
-      controlHeader.style.cursor = 'grabbing';
+  // 隠しキー操作の検出 (Ctrl+Shift+D)
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.code === 'KeyX') {
       e.preventDefault();
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-      if (isDraggingPanel) {
-        const newX = e.clientX - panelOffsetX;
-        const newY = e.clientY - panelOffsetY;
-        
-        // 画面端での制限
-        const maxX = window.innerWidth - controls.offsetWidth;
-        const maxY = window.innerHeight - controls.offsetHeight;
-        
-        const constrainedX = Math.max(0, Math.min(newX, maxX));
-        const constrainedY = Math.max(0, Math.min(newY, maxY));
-        
-        controls.style.left = constrainedX + 'px';
-        controls.style.top = constrainedY + 'px';
-      }
-    });
-    
-    document.addEventListener('mouseup', () => {
-      if (isDraggingPanel) {
-        isDraggingPanel = false;
-        controlHeader.style.cursor = 'grab';
-      }
-    });
+      debugMode = !debugMode;
 
-    function setActiveButton(activeButton) {
-      [playButton, pauseButton, fastForwardButton, reverseButton].forEach(btn => { btn.classList.remove('active'); });
-      activeButton.classList.add('active');
-    }
-
-    playButton.addEventListener('click', () => { isPlaying = true; playbackSpeed = 1; setActiveButton(playButton); });
-    pauseButton.addEventListener('click', () => { isPlaying = false; setActiveButton(pauseButton); });
-    fastForwardButton.addEventListener('click', () => { playbackSpeed = 2; isPlaying = true; setActiveButton(fastForwardButton); });
-    reverseButton.addEventListener('click', () => { playbackSpeed = -1; isPlaying = true; setActiveButton(reverseButton); });
-
-    let sunRA = 0;  
-    let sunDec = 0; 
-    let moonRA = 0; 
-    let moonDec = 0; 
-
-    const planetData = [
-      { name: "Mercury", body: Astronomy.Body.Mercury, color: "#cccccc", RA: 0, Dec: 0 },
-      { name: "Venus",   body: Astronomy.Body.Venus,   color: "#cc99ff", RA: 0, Dec: 0 },
-      { name: "Mars",    body: Astronomy.Body.Mars,    color: "#ff2222", RA: 0, Dec: 0 },
-      { name: "Jupiter", body: Astronomy.Body.Jupiter, color: "#ffffcc", RA: 0, Dec: 0 },
-      { name: "Saturn",  body: Astronomy.Body.Saturn,  color: "#ff9966", RA: 0, Dec: 0 },
-      { name: "Uranus",  body: Astronomy.Body.Uranus,  color: "#66ccff", RA: 0, Dec: 0 },
-      { name: "Neptune", body: Astronomy.Body.Neptune, color: "#6699ff", RA: 0, Dec: 0 },
-      { name: "Pluto",   body: Astronomy.Body.Pluto,   color: "#aaaaaa", RA: 0, Dec: 0 }
-    ];
-
-    async function updateAllPositions() {
-      const time = Astronomy.MakeTime(currentDate);
-      const observer = new Astronomy.Observer(latitude, longitude, 0);
-      const equSun = Astronomy.Equator(Astronomy.Body.Sun, time, observer, true, true);
-      sunRA = equSun.ra;
-      sunDec = equSun.dec;
-      const equMoon = Astronomy.Equator(Astronomy.Body.Moon, time, observer, true, true);
-      moonRA = equMoon.ra;
-      moonDec = equMoon.dec;
-      for (let p of planetData) {
-        const equ = Astronomy.Equator(p.body, time, observer, true, true);
-        p.RA = equ.ra;   
-        p.Dec = equ.dec; 
-      }
-    }
-
-    function toHorizontal(ra, dec, lst) {
-      const latRad = latitude * Math.PI / 180;
-      const ha = lst - ra;
-      const sinAlt = Math.sin(dec) * Math.sin(latRad) + Math.cos(dec) * Math.cos(latRad) * Math.cos(ha);
-      const alt = Math.asin(sinAlt);
-      const cosAz = (Math.sin(dec) - Math.sin(latRad) * Math.sin(alt)) / (Math.cos(latRad) * Math.cos(alt));
-      let az = Math.acos(cosAz);
-      if (Math.sin(ha) > 0) az = 2 * Math.PI - az;
-      const x = Math.cos(alt) * Math.sin(az);
-      const y = -Math.cos(alt) * Math.cos(az);
-      const z = Math.sin(alt);
-      return { x, y, z };
-    }
-
-    function rotateZaxis(x, y, z, angleZ) {
-      const cz = Math.cos(angleZ), sz = Math.sin(angleZ);
-      return { x: x * cz - y * sz, y: x * sz + y * cz, z };
-    }
-    function rotateXaxis(x, y, z, angleX) {
-      const cx = Math.cos(angleX), sx = Math.sin(angleX);
-      return { x, y: y * cx - z * sx, z: y * sx + z * cx };
-    }
-    function rotateYaxis(x, y, z, angleY) {
-      const cy = Math.cos(angleY), sy = Math.sin(angleY);
-      return { x: z * sy + x * cy, y, z: z * cy - x * sy };
-    }
-    function applyAllRotations(x, y, z) {
-      ({ x, y, z } = rotateZaxis(x, y, z, rotationZ));
-      ({ x, y, z } = rotateYaxis(x, y, z, rotationY));
-      ({ x, y, z } = rotateXaxis(x, y, z, rotationEW));
-      return { x, y, z };
-    }
-
-    // 裏側描画フラグを考慮
-    function project(x, y, z) {
-      if (!showBackSide && x < 0) return null;
-      // 東西反転トグルがオンの場合、y の符号を反転
-      const effectiveY = reverseEastWest ? -y : y;
-      const sx = centerX + scale * effectiveY;
-      const sy = centerY - scale * z;
-      return { sx, sy };
-    }
-
-    const magToSize = [
-      { limit: 1.0, size: 3.0 },
-      { limit: 2.0, size: 2.5 },
-      { limit: 3.0, size: 2.0 },
-      { limit: 4.0, size: 1.5 },
-    ];
-    function getStarSize(mag) {
-      for (const m of magToSize) {
-        if (mag <= m.limit) return m.size;
-      }
-      return 1.0;
-    }
-    function getStarColor(mag) {
-      if (mag <= 1.0) return "#ffffff";
-      if (mag <= 2.0) return "#aaaaaa";
-      if (mag <= 3.0) return "#777777";
-      return "#555555";
-    }
-
-    let starsData = [];
-    async function loadStars() {
-      try {
-        const response = await fetch('./data/bsc5.csv');
-        if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
-        const text = await response.text();
-        const lines = text.trim().split('\n');
-        lines.shift(); // ヘッダ行スキップ
-        const stars = [];
-        for (let line of lines) {
-          const cols = line.split(';');
-          if (cols.length < 3) continue;
-          const [RAhms, DEdms, VmagStr] = cols;
-          const Vmag = parseFloat(VmagStr);
-          if (isNaN(Vmag) || Vmag > 5.5) continue;
-          stars.push({ RAhms, DEdms, Vmag });
-        }
-        console.log(`Loaded ${stars.length} stars`);
-        return stars;
-      } catch (error) {
-        console.error('星表データの読み込み失敗:', error);
-        return [];
-      }
-    }
-    function convertRA(RAhms) {
-      const parts = RAhms.trim().split(' ');
-      if (parts.length !== 3) return NaN;
-      const hours = parseFloat(parts[0]),
-            minutes = parseFloat(parts[1]),
-            seconds = parseFloat(parts[2]);
-      if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return NaN;
-      return (hours + minutes / 60 + seconds / 3600) * 15;
-    }
-    function convertDec(DEdms) {
-      const parts = DEdms.trim().split(' ');
-      if (parts.length !== 3) return NaN;
-      const degrees = parseFloat(parts[0]),
-            minutes = parseFloat(parts[1]),
-            seconds = parseFloat(parts[2]);
-      if (isNaN(degrees) || isNaN(minutes) || isNaN(seconds)) return NaN;
-      return degrees + minutes / 60 + seconds / 3600;
-    }
-
-    // ★★★ 最適化された恒星描画 - バッチ処理 ★★★
-    function drawStars() {
-      if (!starsVisible) return;
-      
-      const drawStart = debugMode ? performance.now() : 0; 
-      
-      // 星を色とサイズでグループ化してバッチ描画
-      const starGroups = new Map();
-      
-      for (const star of starsData) {
-        const ra = star.RAdeg * Math.PI / 180;
-        const dec = star.Decdeg * Math.PI / 180;
-        let { x, y, z } = toHorizontal(ra, dec, angle);
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const p = project(x, y, z);
-        
-        if (p) {
-          const size = getStarSize(star.Vmag);
-          const color = getStarColor(star.Vmag);
-          const key = `${color}_${size}`;
-          
-          if (!starGroups.has(key)) {
-            starGroups.set(key, { color, size, points: [] });
-          }
-          starGroups.get(key).points.push({ x: p.sx, y: p.sy });
-        }
-      }
-      
-      // グループ毎にまとめて描画（大幅な最適化）
-      for (const [key, group] of starGroups) {
-        ctx.fillStyle = group.color;
-        ctx.beginPath();
-        for (const point of group.points) {
-          ctx.moveTo(point.x + group.size, point.y);
-          ctx.arc(point.x, point.y, group.size, 0, 2 * Math.PI);
-        }
-        ctx.fill();
-      }
-      
-      // ★★★ デバッグ用描画時間測定 ★★★
       if (debugMode) {
-        const drawTime = performance.now() - drawStart;
-        const starsCount = starsData.length;
-        if (document.getElementById('debugStars')) {
-          document.getElementById('debugStars').textContent = `Stars: ${starsCount} (${drawTime.toFixed(1)}ms)`;
+        createDebugPanel();
+
+      } else {
+        if (debugPanel) {
+          debugPanel.remove();
+          debugPanel = null;
         }
+
       }
     }
+  });
 
-    // ★★★ 最適化された太陽描画 ★★★
-    function drawSun() {
-      const sunRA_rad = (sunRA * 15) * Math.PI / 180;
-      const sunDec_rad = sunDec * Math.PI / 180;
-      let { x, y, z } = toHorizontal(sunRA_rad, sunDec_rad, angle);
+  // ★★★ Control Panel ドラッグ移動機能 ★★★
+  let isDraggingPanel = false;
+  let panelOffsetX = 0;
+  let panelOffsetY = 0;
+
+  const controlHeader = document.querySelector('.control-header');
+
+  controlHeader.addEventListener('mousedown', (e) => {
+    // トグルボタンクリック時はドラッグしない
+    if (e.target === togglePanelButton) return;
+
+    isDraggingPanel = true;
+    const rect = controls.getBoundingClientRect();
+    panelOffsetX = e.clientX - rect.left;
+    panelOffsetY = e.clientY - rect.top;
+    controlHeader.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isDraggingPanel) {
+      const newX = e.clientX - panelOffsetX;
+      const newY = e.clientY - panelOffsetY;
+
+      // 画面端での制限
+      const maxX = window.innerWidth - controls.offsetWidth;
+      const maxY = window.innerHeight - controls.offsetHeight;
+
+      const constrainedX = Math.max(0, Math.min(newX, maxX));
+      const constrainedY = Math.max(0, Math.min(newY, maxY));
+
+      controls.style.left = constrainedX + 'px';
+      controls.style.top = constrainedY + 'px';
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDraggingPanel) {
+      isDraggingPanel = false;
+      controlHeader.style.cursor = 'grab';
+    }
+  });
+
+  function setActiveButton(activeButton) {
+    [playButton, pauseButton, fastForwardButton, reverseButton].forEach(btn => { if (btn) btn.classList.remove('active'); });
+    if (activeButton) activeButton.classList.add('active');
+  }
+
+  if (playButton) playButton.addEventListener('click', () => { isPlaying = true; playbackSpeed = 1; setActiveButton(playButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on play
+  if (pauseButton) pauseButton.addEventListener('click', () => { isPlaying = false; setActiveButton(pauseButton); }); // ★ MODIFIED (Phase 1): Pause stops animation loop
+  if (fastForwardButton) fastForwardButton.addEventListener('click', () => { playbackSpeed = 2; isPlaying = true; setActiveButton(fastForwardButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on fast forward
+  if (reverseButton) reverseButton.addEventListener('click', () => { playbackSpeed = -1; isPlaying = true; setActiveButton(reverseButton); requestRender(); }); // ★ MODIFIED (Phase 1): Request render on reverse
+
+  // ★★★ FIX: リロード時にSTOPボタンを選択状態にする ★★★
+  if (pauseButton) setActiveButton(pauseButton);
+
+  // sunRA, sunDec, moonRA, moonDecはグローバルスコープに移動済み 
+
+  const planetData = [
+    { name: "  ☿ Mercury", body: Astronomy.Body.Mercury, color: "#cccccc", RA: 0, Dec: 0 },
+    { name: "♀ Venus", body: Astronomy.Body.Venus, color: "#cc99ff", RA: 0, Dec: 0 },
+    { name: "♂ Mars", body: Astronomy.Body.Mars, color: "#ff2222", RA: 0, Dec: 0 },
+    { name: "♃ Jupiter", body: Astronomy.Body.Jupiter, color: "#ffffcc", RA: 0, Dec: 0 },
+    { name: "♄ Saturn", body: Astronomy.Body.Saturn, color: "#ff9966", RA: 0, Dec: 0 },
+    { name: "♅ Uranus", body: Astronomy.Body.Uranus, color: "#66ccff", RA: 0, Dec: 0 },
+    { name: " ♆ Neptune", body: Astronomy.Body.Neptune, color: "#6699ff", RA: 0, Dec: 0 },
+    { name: "♇ Pluto", body: Astronomy.Body.Pluto, color: "#aaaaaa", RA: 0, Dec: 0 }
+  ];
+
+  updateAllPositions = async function () {
+
+    const time = Astronomy.MakeTime(currentDate);
+    // ★★★ Set absolute Julian Date for lunar orbit calculation
+    // time.ut is days since J2000, so add J2000 epoch to get absolute JD
+    window.julianDate = time.ut + 2451545.0;
+    const observer = new Astronomy.Observer(latitude, longitude, 0);
+    const equSun = Astronomy.Equator(Astronomy.Body.Sun, time, observer, true, true);
+    sunRA = equSun.ra;
+    sunDec = equSun.dec;
+    const equMoon = Astronomy.Equator(Astronomy.Body.Moon, time, observer, true, true);
+    moonRA = equMoon.ra;
+    moonDec = equMoon.dec;
+    for (let p of planetData) {
+      const equ = Astronomy.Equator(p.body, time, observer, true, true);
+      p.RA = equ.ra;
+      p.Dec = equ.dec;
+    }
+
+    // ========================================
+    // ★ ADDED: Compute ecliptic longitudes and latitudes for horoscope chart
+    // ========================================
+    if (!window.planetEclipticLongitudes) {
+      window.planetEclipticLongitudes = {};
+    }
+    // ★ ADDED (Phase 1): Ecliptic latitudes
+    if (!window.planetEclipticLatitudes) {
+      window.planetEclipticLatitudes = {};
+    }
+
+    // Sun
+    const vecSun = Astronomy.GeoVector(Astronomy.Body.Sun, time, false);
+    const eclSun = Astronomy.Ecliptic(vecSun);
+    window.planetEclipticLongitudes.sun = eclSun.elon;
+    window.planetEclipticLatitudes.sun = eclSun.elat; // ★ ADDED (Phase 1)
+
+    // Moon
+    const vecMoon = Astronomy.GeoVector(Astronomy.Body.Moon, time, false);
+    const eclMoon = Astronomy.Ecliptic(vecMoon);
+    window.planetEclipticLongitudes.moon = eclMoon.elon;
+    window.planetEclipticLatitudes.moon = eclMoon.elat; // ★ ADDED (Phase 1)
+
+    // Planets
+    const planetBodies = [
+      { key: 'mercury', body: Astronomy.Body.Mercury },
+      { key: 'venus', body: Astronomy.Body.Venus },
+      { key: 'mars', body: Astronomy.Body.Mars },
+      { key: 'jupiter', body: Astronomy.Body.Jupiter },
+      { key: 'saturn', body: Astronomy.Body.Saturn },
+      { key: 'uranus', body: Astronomy.Body.Uranus },
+      { key: 'neptune', body: Astronomy.Body.Neptune },
+      { key: 'pluto', body: Astronomy.Body.Pluto }
+    ];
+
+    for (let planet of planetBodies) {
+      const vec = Astronomy.GeoVector(planet.body, time, false);
+      const ecl = Astronomy.Ecliptic(vec);
+      window.planetEclipticLongitudes[planet.key] = ecl.elon;
+      window.planetEclipticLatitudes[planet.key] = ecl.elat; // ★ ADDED (Phase 1)
+    }
+
+    // ★ DEBUG: 惑星座標の計算結果（高頻度出力のためコメントアウト）
+    // console.log('[sphere10.js] Ecliptic longitudes computed:', window.planetEclipticLongitudes);
+    // console.log('[sphere10.js] Ecliptic latitudes computed:', window.planetEclipticLatitudes);
+    // ========================================
+    // ★ END ADDED
+    // ========================================
+
+    // ========================================
+    // ★★★ LST（地方恒星時）計算と天球回転角度の更新 ★★★
+    // ========================================
+    // GAST（グリニッジ視恒星時）を恒星時（hours）で取得
+    const gast_hours = Astronomy.SiderealTime(time); // sidereal hours (0-24)
+
+    // 恒星時を度に変換（1 hour = 15 degrees）
+    const gast_deg = gast_hours * 15;
+
+    // LST = GAST + 経度（東が正）
+    const lst_deg = gast_deg + longitude; // degrees
+
+    // 天球回転角度をラジアンに変換して更新
+    celestialAngle = lst_deg * Math.PI / 180;
+
+
+    // ========================================
+    // ★★★ END LST CALCULATION ★★★
+    // ========================================
+
+    requestRender();
+  }
+
+  // 地平座標（方位角、高度）から赤道座標（赤経、赤緯）への変換
+  function toEquatorial(azimuth, altitude, lst) {
+    const latRad = latitude * Math.PI / 180;
+
+    // 赤緯を計算
+    const sinDec = Math.sin(altitude) * Math.sin(latRad) + Math.cos(altitude) * Math.cos(latRad) * Math.cos(azimuth);
+    const dec = Math.asin(sinDec);
+
+    // 時角を計算
+    const cosDec = Math.cos(dec);
+    let ha;
+    if (Math.abs(cosDec) < CONSTANTS.ZENITH_NADIR_THRESHOLD) {
+      // 天頂または天底: 時角は不定
+      ha = 0;
+    } else {
+      const cosHA = (Math.sin(altitude) - Math.sin(latRad) * Math.sin(dec)) / (Math.cos(latRad) * cosDec);
+      const sinHA = -Math.sin(azimuth) * Math.cos(altitude) / cosDec;
+      ha = Math.atan2(sinHA, cosHA);
+      if (ha < 0) ha += 2 * Math.PI;
+    }
+
+    // 赤経を計算
+    let ra = lst - ha;
+    // 赤経を0〜2πの範囲に正規化
+    ra = ((ra % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+    return { ra, dec };
+  }
+
+  function toHorizontal(ra, dec, lst) {
+    const latRad = latitude * Math.PI / 180;
+    const ha = lst - ra;
+    const sinAlt = Math.sin(dec) * Math.sin(latRad) + Math.cos(dec) * Math.cos(latRad) * Math.cos(ha);
+    const alt = Math.asin(sinAlt);
+
+    // ★ FIXED: 天頂/天底の特別処理（子午線がNaNになる問題を修正）
+    const cosAlt = Math.cos(alt);
+    let az;
+    if (Math.abs(cosAlt) < CONSTANTS.ZENITH_NADIR_THRESHOLD) {
+      // 天頂または天底: 方位角は不定だが、x=0, y=0 とする
+      az = 0;
+    } else {
+      const cosAz = (Math.sin(dec) - Math.sin(latRad) * Math.sin(alt)) / (Math.cos(latRad) * cosAlt);
+      // ★ FIXED: 数値誤差対策
+      const clampedCosAz = Math.max(-1, Math.min(1, cosAz));
+      az = Math.acos(clampedCosAz);
+      if (Math.sin(ha) > 0) az = 2 * Math.PI - az;
+    }
+
+    const x = cosAlt * Math.sin(az);
+    const y = -cosAlt * Math.cos(az);
+    const z = Math.sin(alt);
+    return { x, y, z };
+  }
+
+  function rotateZaxis(x, y, z, angleZ) {
+    const cz = Math.cos(angleZ), sz = Math.sin(angleZ);
+    return { x: x * cz - y * sz, y: x * sz + y * cz, z };
+  }
+  function rotateXaxis(x, y, z, angleX) {
+    const cx = Math.cos(angleX), sx = Math.sin(angleX);
+    return { x, y: y * cx - z * sx, z: y * sx + z * cx };
+  }
+  function rotateYaxis(x, y, z, angleY) {
+    const cy = Math.cos(angleY), sy = Math.sin(angleY);
+    return { x: z * sy + x * cy, y, z: z * cy - x * sy };
+  }
+  function applyAllRotations(x, y, z) {
+    ({ x, y, z } = rotateZaxis(x, y, z, rotationZ));
+    ({ x, y, z } = rotateYaxis(x, y, z, rotationY));
+    ({ x, y, z } = rotateXaxis(x, y, z, rotationEW));
+    return { x, y, z };
+  }
+
+  // 裏側描画フラグを考慮
+  // ★ MODIFIED: isBackSideフラグを返すように変更（奥行き暗化対応）
+  function project(x, y, z) {
+    const isBackSide = x < 0; // X軸が奥行き（負=奥側）
+    if (!showBackSide && isBackSide) return null;
+    // 東西反転トグルがオンの場合、y の符号を反転
+    const effectiveY = reverseEastWest ? -y : y;
+    const sx = centerX + scale * effectiveY;
+    const sy = centerY - scale * z;
+    return { sx, sy, isBackSide };
+  }
+
+  const magToSize = [
+    { limit: 1.0, size: 3.0 },
+    { limit: 2.0, size: 2.5 },
+    { limit: 3.0, size: 2.0 },
+    { limit: 4.0, size: 1.5 },
+  ];
+  function getStarSize(mag) {
+    for (const m of magToSize) {
+      if (mag <= m.limit) return m.size;
+    }
+    return 1.0;
+  }
+  function getStarColor(mag) {
+    if (mag <= 1.0) return "#ffffff";
+    if (mag <= 2.0) return "#aaaaaa";
+    if (mag <= 3.0) return "#777777";
+    return "#555555";
+  }
+
+  let starsData = [];
+  async function loadStars() {
+    try {
+      const response = await fetch('./data/bsc5.csv');
+      if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+      const text = await response.text();
+      const lines = text.trim().split('\n');
+      lines.shift(); // ヘッダ行スキップ
+      const stars = [];
+      for (let line of lines) {
+        const cols = line.split(';');
+        if (cols.length < 3) continue;
+        const [RAhms, DEdms, VmagStr] = cols;
+        const Vmag = parseFloat(VmagStr);
+        if (isNaN(Vmag) || Vmag > 5.5) continue;
+        stars.push({ RAhms, DEdms, Vmag });
+      }
+
+      return stars;
+    } catch (error) {
+      console.error('星表データの読み込み失敗:', error);
+      return [];
+    }
+  }
+  function convertRA(RAhms) {
+    const parts = RAhms.trim().split(' ');
+    if (parts.length !== 3) return NaN;
+    const hours = parseFloat(parts[0]),
+      minutes = parseFloat(parts[1]),
+      seconds = parseFloat(parts[2]);
+    if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return NaN;
+    return (hours + minutes / 60 + seconds / 3600) * 15;
+  }
+  function convertDec(DEdms) {
+    const parts = DEdms.trim().split(' ');
+    if (parts.length !== 3) return NaN;
+    const degrees = parseFloat(parts[0]),
+      minutes = parseFloat(parts[1]),
+      seconds = parseFloat(parts[2]);
+    if (isNaN(degrees) || isNaN(minutes) || isNaN(seconds)) return NaN;
+    return degrees + minutes / 60 + seconds / 3600;
+  }
+
+  // ★★★ 最適化された恒星描画 - バッチ処理 ★★★
+  function drawStars() {
+    if (!starsVisible) return;
+
+    const drawStart = debugMode ? performance.now() : 0;
+
+    // 星を色とサイズでグループ化してバッチ描画
+    // ★ MODIFIED: 奥行き暗化対応（αもグループ化のキーに含める）
+    const starGroups = new Map();
+
+    for (const star of starsData) {
+      const ra = star.RAdeg * Math.PI / 180;
+      const dec = star.Decdeg * Math.PI / 180;
+      let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
       ({ x, y, z } = applyAllRotations(x, y, z));
       const p = project(x, y, z);
+
       if (p) {
-        // シャドウ効果の最適化（必要な場合のみsave/restore）
-        const originalShadowBlur = ctx.shadowBlur;
-        const originalShadowColor = ctx.shadowColor;
-        
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = "#ffff88";
-        ctx.fillStyle = "#ffff00";
-        ctx.beginPath();
-        ctx.arc(p.sx, p.sy, 10, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        // シャドウをリセット
-        ctx.shadowBlur = originalShadowBlur;
-        ctx.shadowColor = originalShadowColor;
-        
-        if (planetLabelsVisible) {
-          ctx.font = '14px sans-serif';
-          ctx.fillStyle = '#dddddd';
-          ctx.fillText("Sun", p.sx + 30, p.sy);
+        const size = getStarSize(star.Vmag);
+        const color = getStarColor(star.Vmag);
+        // ★ ADDED: 奥行き暗化モード時はαを計算
+        const alpha = (applyDepthShading && p.isBackSide) ? 0.4 : 1.0;
+        const key = `${color}_${size}_${alpha}`;
+
+        if (!starGroups.has(key)) {
+          starGroups.set(key, { color, size, alpha, points: [] });
         }
+        starGroups.get(key).points.push({ x: p.sx, y: p.sy });
       }
     }
 
-    function drawMoon() {
-      const moonRA_rad = (moonRA * 15) * Math.PI / 180;
-      const moonDec_rad = moonDec * Math.PI / 180;
-      let { x, y, z } = toHorizontal(moonRA_rad, moonDec_rad, angle);
-      ({ x, y, z } = applyAllRotations(x, y, z));
-      const p = project(x, y, z);
-      if (p) {
-        ctx.save();
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = "#dddddd";
-        ctx.fillStyle = "#dddddd";
-        ctx.beginPath();
-        ctx.arc(p.sx, p.sy, 10, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.restore();
-        if (planetLabelsVisible) {
-          ctx.font = '14px sans-serif';
-          ctx.fillStyle = '#dddddd';
-          ctx.fillText("Moon", p.sx + 30, p.sy);
-        }
+    // グループ毎にまとめて描画（大幅な最適化）
+    for (const [key, group] of starGroups) {
+      ctx.globalAlpha = group.alpha; // ★ ADDED: グループ単位でα設定
+      ctx.fillStyle = group.color;
+      ctx.beginPath();
+      for (const point of group.points) {
+        ctx.moveTo(point.x + group.size, point.y);
+        ctx.arc(point.x, point.y, group.size, 0, 2 * Math.PI);
       }
+      ctx.fill();
     }
 
-    function drawPlanets() {
-      for (const pData of planetData) {
+    ctx.globalAlpha = 1.0; // ★ FIXED: α値をリセット（後続描画への影響を防止）
+
+    // ★★★ デバッグ用描画時間測定 ★★★
+    if (debugMode) {
+      const drawTime = performance.now() - drawStart;
+      const starsCount = starsData.length;
+      if (document.getElementById('debugStars')) {
+        document.getElementById('debugStars').textContent = `Stars: ${starsCount} (${drawTime.toFixed(1)}ms)`;
+      }
+    }
+  }
+
+  // ★★★ 最適化された太陽描画 ★★★
+  function drawSun() {
+    const sunRA_rad = (sunRA * 15) * Math.PI / 180;
+    const sunDec_rad = sunDec * Math.PI / 180;
+    let { x, y, z } = toHorizontal(sunRA_rad, sunDec_rad, celestialAngle);
+    ({ x, y, z } = applyAllRotations(x, y, z));
+    const p = project(x, y, z);
+    if (p) {
+      // シャドウ効果の最適化（必要な場合のみsave/restore）
+      const originalShadowBlur = ctx.shadowBlur;
+      const originalShadowColor = ctx.shadowColor;
+
+      ctx.shadowBlur = 30;
+      ctx.shadowColor = "#ffff88";
+      ctx.fillStyle = "#ffff00";
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, 10, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // シャドウをリセット
+      ctx.shadowBlur = originalShadowBlur;
+      ctx.shadowColor = originalShadowColor;
+
+      if (planetLabelsVisible) {
+        ctx.font = '14px sans-serif';
+        ctx.fillStyle = '#dddddd';
+        ctx.fillText("Sun", p.sx + 30, p.sy);
+      }
+    }
+  }
+
+  function drawMoon() {
+    const moonRA_rad = (moonRA * 15) * Math.PI / 180;
+    const moonDec_rad = moonDec * Math.PI / 180;
+    let { x, y, z } = toHorizontal(moonRA_rad, moonDec_rad, celestialAngle);
+    ({ x, y, z } = applyAllRotations(x, y, z));
+    const p = project(x, y, z);
+    if (p) {
+      ctx.save();
+      ctx.shadowBlur = 30;
+      ctx.shadowColor = "#dddddd";
+      ctx.fillStyle = "#dddddd";
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, 10, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+      if (planetLabelsVisible) {
+        ctx.font = '14px sans-serif';
+        ctx.fillStyle = '#dddddd';
+        ctx.fillText("Moon", p.sx + 30, p.sy);
+      }
+    }
+  }
+
+  // ★★★ Phase 2 - Layer 2: 惑星ラベルの3D座標キャッシュ ★★★
+  const planetLabelCache = {
+    coords: null,        // 惑星の3D座標配列
+    lastAngle: null,     // 前回のLST角度
+    lastLatitude: null,  // 前回の緯度
+    lastRA: null,        // 前回のRA配列（惑星位置変化検出用）
+    lastDec: null        // 前回のDec配列（惑星位置変化検出用）
+  };
+
+  function drawPlanets() {
+    // ★★★ Phase 2 - Layer 2: angleまたはlatitudeまたは惑星位置が変化した時のみ3D座標を再計算 ★★★
+    const currentRA = planetData.map(p => p.RA);
+    const currentDec = planetData.map(p => p.Dec);
+
+    const angleChanged = planetLabelCache.lastAngle !== celestialAngle;
+    const latitudeChanged = planetLabelCache.lastLatitude !== latitude;
+    const planetPositionChanged =
+      !planetLabelCache.lastRA ||
+      !planetLabelCache.lastDec ||
+      currentRA.some((ra, i) => ra !== planetLabelCache.lastRA[i]) ||
+      currentDec.some((dec, i) => dec !== planetLabelCache.lastDec[i]);
+
+    if (angleChanged || latitudeChanged || planetPositionChanged || planetLabelCache.coords === null) {
+      planetLabelCache.coords = planetData.map(pData => {
         const raRad = (pData.RA * 15) * Math.PI / 180;
         const decRad = pData.Dec * Math.PI / 180;
-        let { x, y, z } = toHorizontal(raRad, decRad, angle);
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const projPos = project(x, y, z);
-        if (projPos) {
-          ctx.fillStyle = pData.color; 
-          ctx.beginPath();
-          ctx.arc(projPos.sx, projPos.sy, 5, 0, 2 * Math.PI);
-          ctx.fill();
-          if (planetLabelsVisible) {
-            ctx.font = '14px sans-serif';
-            ctx.fillStyle = '#dddddd';
-            ctx.fillText(pData.name, projPos.sx + 35, projPos.sy);
-          }
+        return toHorizontal(raRad, decRad, celestialAngle);
+      });
+      planetLabelCache.lastAngle = celestialAngle;
+      planetLabelCache.lastLatitude = latitude;
+      planetLabelCache.lastRA = currentRA;
+      planetLabelCache.lastDec = currentDec;
+    }
+
+    // キャッシュされた3D座標を使用して描画
+    for (let i = 0; i < planetData.length; i++) {
+      const pData = planetData[i];
+      let { x, y, z } = planetLabelCache.coords[i];
+      ({ x, y, z } = applyAllRotations(x, y, z));
+      const projPos = project(x, y, z);
+      if (projPos) {
+        ctx.fillStyle = pData.color;
+        ctx.beginPath();
+        ctx.arc(projPos.sx, projPos.sy, 5, 0, 2 * Math.PI);
+        ctx.fill();
+        if (planetLabelsVisible) {
+          ctx.font = '14px sans-serif';
+          ctx.fillStyle = '#dddddd';
+          ctx.fillText(pData.name, projPos.sx + 35, projPos.sy);
         }
       }
     }
+  }
 
-    function drawHorizon() {
-      if (!horizonVisible) return;
-      ctx.strokeStyle = "green";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([]);
+  function drawHorizon() {
+    if (!horizonVisible) return;
+    ctx.strokeStyle = "green";
+    ctx.lineWidth = 2;
+    const dashPattern = [];
+    ctx.setLineDash(dashPattern);
+
+    const steps = 360;
+
+    if (!applyDepthShading) {
+      // 奥行き暗化なし：通常描画
       ctx.beginPath();
       let started = false;
-      const steps = 360;
       for (let i = 0; i <= steps; i++) {
         const az = i * (2 * Math.PI / steps);
         const alt = 0;
@@ -1012,11 +1495,11 @@ function initApp() {
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         if (p) {
-          if (!started) { 
-            ctx.moveTo(p.sx, p.sy); 
-            started = true; 
-          } else { 
-            ctx.lineTo(p.sx, p.sy); 
+          if (!started) {
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            ctx.lineTo(p.sx, p.sy);
           }
         } else {
           if (started) {
@@ -1026,68 +1509,196 @@ function initApp() {
         }
       }
       if (started) { ctx.stroke(); }
+    } else {
+      // 奥行き暗化あり：裏側を暗くする
+      const points = [];
+      for (let i = 0; i <= steps; i++) {
+        const az = i * (2 * Math.PI / steps);
+        const alt = 0;
+        let x = Math.cos(alt) * Math.sin(az);
+        let y = -Math.cos(alt) * Math.cos(az);
+        let z = Math.sin(alt);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        if (p) {
+          points.push(p);
+        }
+      }
+
+      if (points.length === 0) return;
+
+      let currentAlpha = null;
+      ctx.beginPath();
+      ctx.moveTo(points[0].sx, points[0].sy);
+
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        const alpha = p.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
+
+        if (currentAlpha !== null && currentAlpha !== alpha) {
+          // alpha値が変わったら、一旦strokeして新しいパスを開始
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(p.sx, p.sy);
+        }
+
+        if (currentAlpha !== alpha) {
+          ctx.globalAlpha = alpha;
+          currentAlpha = alpha;
+        }
+
+        ctx.lineTo(p.sx, p.sy);
+      }
+
+      ctx.stroke();
+      ctx.globalAlpha = 1.0; // リセット
     }
+  }
 
-    function drawAltitudeGrid() {
-      if (!showAltGrid) return;
+  function drawLunarOrbit3D() {
+    if (!lunarOrbitVisible) return;
+    if (!window.LunarOrbit) return;
 
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
+    const JD = window.julianDate || 2451545.0;
+    const points = window.LunarOrbit.generateLunarOrbitPoints(5, JD);
 
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      const steps = isRotating ? 72 : 144;
+    if (!points || points.length === 0) return;
 
-      function drawAltitudeCircle(altDeg) {
-        const alt = altDeg * Math.PI / 180;
-        let started = false;
-        ctx.beginPath();
-        for (let i = 0; i <= steps; i++) {
-          const az = i * (2 * Math.PI / steps);
-          let x = Math.cos(alt) * Math.sin(az);
-          let y = -Math.cos(alt) * Math.cos(az);
-          let z = Math.sin(alt);
-          ({ x, y, z } = applyAllRotations(x, y, z));
-          const p = project(x, y, z);
-          if (p) {
-            if (!started) {
-              ctx.moveTo(p.sx, p.sy);
-              started = true;
-            } else {
-              ctx.lineTo(p.sx, p.sy);
-            }
-          } else if (started) {
+    ctx.strokeStyle = '#00FFFF';  // シアン（白道）
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+
+    if (!applyDepthShading) {
+      // 奥行き暗化なし：通常描画
+      ctx.beginPath();
+      let started = false;
+      for (const p of points) {
+        let { x, y, z } = toHorizontal(p.ra, p.dec, celestialAngle);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const pr = project(x, y, z);
+        if (pr) {
+          if (!started) {
+            ctx.moveTo(pr.sx, pr.sy);
+            started = true;
+          } else {
+            ctx.lineTo(pr.sx, pr.sy);
+          }
+        } else {
+          if (started) {
             ctx.stroke();
             started = false;
-            ctx.beginPath();
           }
         }
-        if (started) {
-          ctx.stroke();
+      }
+      if (started) ctx.stroke();
+    } else {
+      // 奥行き暗化あり：セグメント分割
+      const projectedPoints = [];
+      for (const p of points) {
+        let { x, y, z } = toHorizontal(p.ra, p.dec, celestialAngle);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const pr = project(x, y, z);
+        if (pr) {
+          projectedPoints.push(pr);
         }
       }
 
-      for (let altDeg = 10; altDeg <= 80; altDeg += 10) {
-        drawAltitudeCircle(altDeg);
-        drawAltitudeCircle(-altDeg);
+      if (projectedPoints.length === 0) return;
+
+      let currentAlpha = null;
+      ctx.beginPath();
+      ctx.moveTo(projectedPoints[0].sx, projectedPoints[0].sy);
+
+      for (let i = 0; i < projectedPoints.length; i++) {
+        const pr = projectedPoints[i];
+        const alpha = pr.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
+
+        if (currentAlpha !== null && currentAlpha !== alpha) {
+          // alpha値が変わったら、一旦strokeして新しいパスを開始
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(pr.sx, pr.sy);
+        }
+
+        if (currentAlpha !== alpha) {
+          ctx.globalAlpha = alpha;
+          currentAlpha = alpha;
+        }
+
+        ctx.lineTo(pr.sx, pr.sy);
       }
 
-      ctx.restore();
+      ctx.stroke();
+      ctx.globalAlpha = 1.0; // リセット
+    }
+  }
+
+  function drawAltitudeGrid() {
+    if (!showAltGrid) return;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([]);
+
+    const currentTime = window.currentFrameTime || Date.now();
+    const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
+    const steps = isRotating ? 72 : 144;
+
+    function drawAltitudeCircle(altDeg) {
+      const alt = altDeg * Math.PI / 180;
+      let started = false;
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const az = i * (2 * Math.PI / steps);
+        let x = Math.cos(alt) * Math.sin(az);
+        let y = -Math.cos(alt) * Math.cos(az);
+        let z = Math.sin(alt);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        if (p) {
+          if (!started) {
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            ctx.lineTo(p.sx, p.sy);
+          }
+        } else if (started) {
+          ctx.stroke();
+          started = false;
+          ctx.beginPath();
+        }
+      }
+      if (started) {
+        ctx.stroke();
+      }
     }
 
-    const epsilon = 23.439281 * Math.PI / 180;
-    
-    function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineWidth;
-      ctx.setLineDash(dashed ? [5, 5] : []);
+    for (let altDeg = 10; altDeg <= 80; altDeg += 10) {
+      drawAltitudeCircle(altDeg);
+      drawAltitudeCircle(-altDeg);
+    }
+
+    ctx.restore();
+  }
+
+  const epsilon = 23.439281 * Math.PI / 180;
+
+  // ★ MODIFIED: 奥行き暗化対応（手前と奥で線を分割）
+  // ★ MODIFIED: 奥行き暗化対応（1回のループで描画、パフォーマンス最適化）
+  function drawGreatCircle(raDecFunc, color, lineWidth = 1, dashed = false, steps = 360) {
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = color;
+    const dashPattern = dashed ? [5, 5] : [];
+    ctx.setLineDash(dashPattern);
+
+    if (!applyDepthShading) {
+      // 奥行き暗化なし: 従来の描画
       let started = false;
       for (let i = 0; i <= steps; i++) {
         const t = i * (2 * Math.PI / steps);
         const { ra, dec } = raDecFunc(t);
-        let { x, y, z } = toHorizontal(ra, dec, angle);
+        let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
         ({ x, y, z } = applyAllRotations(x, y, z));
         const p = project(x, y, z);
         if (p) {
@@ -1106,365 +1717,717 @@ function initApp() {
         }
       }
       if (started) { ctx.stroke(); }
-    }
+    } else {
+      // 奥行き暗化あり: 1回のループで手前/奥を切り替えながら描画
+      let currentAlpha = null;
+      let started = false;
+      let lastPoint = null;
 
-    function drawMeridian() {
-      if (!meridianVisible) return;
-      drawGreatCircle(
-        (t) => {
-          const dec = t - Math.PI; 
-          const ra = angle; 
-          return { ra, dec };
-        },
-        "green",
-        2,
-        true,
-        360
-      ); // false＝実線
-    }
+      for (let i = 0; i <= steps; i++) {
+        const t = i * (2 * Math.PI / steps);
+        const { ra, dec } = raDecFunc(t);
+        let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
 
-    function drawEquator() {
-      if (!equatorVisible) return; 
-      drawGreatCircle((t) => ({ ra: t, dec: 0 }), "red", 1, false); // false＝実線
-    }
+        if (p) {
+          const alpha = p.isBackSide ? CONSTANTS.DEPTH_ALPHA_BACK : CONSTANTS.DEPTH_ALPHA_FRONT;
 
-    function drawEcliptic() {
-      if (!eclipticVisible) return; 
-      drawGreatCircle((lambda) => {
-        const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
-        const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
-        return { ra, dec };
-      }, "orange", 1, false);
-    }
-
-    function drawEclipticBand() {
-      if (!eclipticBandVisible) return; 
-      
-      // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      const steps = isRotating ? 90 : 180; // 360 → 90-180 (75-50%削減)
-      
-      function drawLineBeta(betaDeg) {
-        const beta = betaDeg * Math.PI / 180;
-        drawGreatCircle((lambda) => {
-          const dec = Math.asin(Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambda));
-          const ra = Math.atan2(
-            Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambda) - Math.sin(beta) * Math.sin(epsilon),
-            Math.cos(beta) * Math.cos(lambda)
-          );
-          return { ra, dec };
-        }, "orange", 1, false, steps);
-      }
-      drawLineBeta(8);
-      drawLineBeta(-8);
-    }
-
-    function drawZodiacDivisions() {
-      if (!eclipticBandVisible) return; 
-      ctx.strokeStyle = "orange";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([]);
-      
-      // ★★★ 最適化: 全ての線を一つのパスにまとめる + 動的品質調整 ★★★
-      ctx.beginPath();
-      const divisions = 12;
-      
-      // 回転状態に応じて描画品質を動的調整
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      const steps = isRotating ? 12 : 20; // 回転中は軽量、静止時は高品質
-      
-      for (let i = 0; i < divisions; i++) {
-        const lambdaConst = i * 30 * Math.PI / 180;
-        let started = false;
-        
-        for (let j = 0; j <= steps; j++) {
-          const beta = -8 * Math.PI / 180 + (16 * Math.PI / 180) * (j / steps);
-          const dec = Math.asin(
-            Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambdaConst)
-          );
-          const ra = Math.atan2(
-            Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambdaConst) - Math.sin(beta) * Math.sin(epsilon),
-            Math.cos(beta) * Math.cos(lambdaConst)
-          );
-          let { x, y, z } = toHorizontal(ra, dec, angle);
-          ({ x, y, z } = applyAllRotations(x, y, z));
-          const p = project(x, y, z);
-          if (p) {
-            if (!started) { 
-              ctx.moveTo(p.sx, p.sy); 
-              started = true; 
-            } else { 
-              ctx.lineTo(p.sx, p.sy); 
+          // α値が変わったら、現在のパスを終了して新しいパスを開始
+          if (currentAlpha !== null && currentAlpha !== alpha) {
+            if (started) {
+              ctx.stroke();
+              ctx.globalAlpha = alpha;
+              currentAlpha = alpha;
+              ctx.beginPath();
+              if (lastPoint) {
+                ctx.moveTo(lastPoint.sx, lastPoint.sy);
+                ctx.lineTo(p.sx, p.sy);
+              } else {
+                ctx.moveTo(p.sx, p.sy);
+              }
+              started = true;
+              lastPoint = p;
+            } else {
+              ctx.globalAlpha = alpha;
+              currentAlpha = alpha;
+              ctx.beginPath();
+              ctx.moveTo(p.sx, p.sy);
+              started = true;
+              lastPoint = p;
             }
+          } else if (!started) {
+            ctx.globalAlpha = alpha;
+            currentAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+            lastPoint = p;
           } else {
-            // 線が切れる場合は次のmoveToで新しいサブパスを開始
+            ctx.lineTo(p.sx, p.sy);
+            lastPoint = p;
+          }
+        } else {
+          if (started) {
+            ctx.stroke();
+            started = false;
+            currentAlpha = null;
+            lastPoint = null;
+          }
+        }
+      }
+
+      if (started) { ctx.stroke(); }
+      ctx.globalAlpha = 1.0; // リセット
+    }
+  }
+
+  function drawMeridian() {
+    if (!meridianVisible) return;
+    drawGreatCircle(
+      (t) => {
+        const dec = t - Math.PI;
+        const ra = celestialAngle;
+        return { ra, dec };
+      },
+      CONSTANTS.COLORS.MERIDIAN,
+      CONSTANTS.GREAT_CIRCLE_LINE_WIDTH,
+      false,
+      180
+    ); // false＝実線, steps=180で半周（子午線は半周で完結）
+  }
+
+  function drawPrimeVertical() {
+    if (!primeVerticalVisible) return;
+
+    // 卯酉線は東西（方位角90°/270°）を通る大円
+    // 単一の呼び出しで完全な円を描画（二重描画を回避）
+    drawGreatCircle(
+      (t) => {
+        let azimuth, altitude;
+
+        if (t <= Math.PI) {
+          // 前半: 東側の半円（天底 → 東 → 天頂）
+          azimuth = Math.PI / 2;       // 90°（東）
+          altitude = t - Math.PI / 2;  // -π/2 〜 π/2
+        } else {
+          // 後半: 西側の半円（天頂 → 西 → 天底）
+          azimuth = 3 * Math.PI / 2;         // 270°（西）
+          altitude = 3 * Math.PI / 2 - t;    // π/2 〜 -π/2
+        }
+
+        const { ra, dec } = toEquatorial(azimuth, altitude, celestialAngle);
+        return { ra, dec };
+      },
+      CONSTANTS.COLORS.MERIDIAN,
+      CONSTANTS.GREAT_CIRCLE_LINE_WIDTH,
+      false,
+      360  // 完全な円（steps = 360）
+    );
+  }
+
+  function drawEquator() {
+    if (!equatorVisible) return;
+    drawGreatCircle((t) => ({ ra: t, dec: 0 }), CONSTANTS.COLORS.EQUATOR, CONSTANTS.GREAT_CIRCLE_LINE_WIDTH, false); // false＝実線
+  }
+
+  function drawEcliptic() {
+    if (!eclipticVisible) return;
+    drawGreatCircle((lambda) => {
+      const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
+      const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
+      return { ra, dec };
+    }, CONSTANTS.COLORS.ECLIPTIC, CONSTANTS.GREAT_CIRCLE_LINE_WIDTH, false);
+  }
+
+  function drawEclipticBand() {
+    if (!eclipticBandVisible) return;
+
+    // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
+    const currentTime = window.currentFrameTime || Date.now();
+    const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
+    const steps = isRotating ? 90 : 180; // 360 → 90-180 (75-50%削減)
+
+    function drawLineBeta(betaDeg) {
+      const beta = betaDeg * Math.PI / 180;
+      drawGreatCircle((lambda) => {
+        const dec = Math.asin(Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambda));
+        const ra = Math.atan2(
+          Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambda) - Math.sin(beta) * Math.sin(epsilon),
+          Math.cos(beta) * Math.cos(lambda)
+        );
+        return { ra, dec };
+      }, "orange", 1, false, steps);
+    }
+    drawLineBeta(8);
+    drawLineBeta(-8);
+  }
+
+  function drawZodiacDivisions() {
+    if (!eclipticBandVisible) return;
+    ctx.strokeStyle = "orange";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+
+    // ★★★ 最適化: 全ての線を一つのパスにまとめる + 動的品質調整 ★★★
+    ctx.beginPath();
+    const divisions = 12;
+
+    // ★ ADDED: サイデリアル方式対応
+    const offset = isSidereal ? AYANAMSHA : 0;
+
+    // 回転状態に応じて描画品質を動的調整
+    const currentTime = window.currentFrameTime || Date.now();
+    const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
+    const steps = isRotating ? 12 : 20; // 回転中は軽量、静止時は高品質
+
+    for (let i = 0; i < divisions; i++) {
+      const lambdaConst = (i * 30 + offset) * Math.PI / 180;
+      let started = false;
+
+      for (let j = 0; j <= steps; j++) {
+        const beta = -8 * Math.PI / 180 + (16 * Math.PI / 180) * (j / steps);
+        const dec = Math.asin(
+          Math.sin(beta) * Math.cos(epsilon) + Math.cos(beta) * Math.sin(epsilon) * Math.sin(lambdaConst)
+        );
+        const ra = Math.atan2(
+          Math.cos(beta) * Math.cos(epsilon) * Math.sin(lambdaConst) - Math.sin(beta) * Math.sin(epsilon),
+          Math.cos(beta) * Math.cos(lambdaConst)
+        );
+        let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        if (p) {
+          if (!started) {
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            ctx.lineTo(p.sx, p.sy);
+          }
+        } else {
+          // 線が切れる場合は次のmoveToで新しいサブパスを開始
+          started = false;
+        }
+      }
+    }
+    // ★★★ 全ての線を一度に描画 ★★★
+    ctx.stroke();
+  }
+
+  function drawZodiacSymbols() {
+    if (!eclipticBandVisible) return;
+
+    const zodiacSymbols = ["♈︎", "♉︎", "♊︎", "♋︎", "♌︎", "♍︎", "♎︎", "♏︎", "♐︎", "♑︎", "♒︎", "♓︎"];
+
+    // ★★★ パフォーマンス最適化: 回転状態に応じてフォントサイズを調整 ★★★
+    const currentTime = window.currentFrameTime || Date.now();
+    const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
+
+    ctx.fillStyle = "orange";
+    // 回転中は軽量なフォントサイズ、静止時は通常サイズ
+    ctx.font = isRotating ? "30px sans-serif" : "40px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // ★ ADDED: サイデリアル方式対応
+    const offset = isSidereal ? AYANAMSHA : 0;
+
+    for (let i = 0; i < 12; i++) {
+      const lambdaDeg = i * 30 + 15 + offset;
+      const lambda = lambdaDeg * Math.PI / 180;
+      const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
+      const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
+      let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
+      ({ x, y, z } = applyAllRotations(x, y, z));
+      const p = project(x, y, z);
+      if (p) ctx.fillText(zodiacSymbols[i], p.sx, p.sy);
+    }
+  }
+
+  function drawRA12Lines() {
+    if (!ra12LinesVisible) return;
+    ctx.strokeStyle = 'rgba(50, 50, 255, 0.8)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+
+    // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
+    const currentTime = window.currentFrameTime || Date.now();
+    const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
+
+    for (let i = 0; i < 12; i++) {
+      const RAconst = i * (30 * Math.PI / 180);
+      let started = false;
+      ctx.beginPath();
+      const steps = isRotating ? 25 : 40; // 50 → 25-40 (50-20%削減)
+      for (let j = 0; j <= steps; j++) {
+        const dec = -Math.PI / 2 + (Math.PI * (j / steps));
+        let { x, y, z } = toHorizontal(RAconst, dec, celestialAngle);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+        if (p) {
+          if (!started) {
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            ctx.lineTo(p.sx, p.sy);
+          }
+        } else {
+          if (started) {
+            ctx.stroke();
             started = false;
           }
         }
       }
-      // ★★★ 全ての線を一度に描画 ★★★
-      ctx.stroke();
+      if (started) { ctx.stroke(); }
     }
-
-    function drawZodiacSymbols() {
-      if (!eclipticBandVisible) return; 
-      
-      const zodiacSymbols = ["♈︎", "♉︎", "♊︎", "♋︎", "♌︎", "♍︎", "♎︎", "♏︎", "♐︎", "♑︎", "♒︎", "♓︎"];
-      
-      // ★★★ パフォーマンス最適化: 回転状態に応じてフォントサイズを調整 ★★★
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      
-      ctx.fillStyle = "orange";
-      // 回転中は軽量なフォントサイズ、静止時は通常サイズ
-      ctx.font = isRotating ? "30px sans-serif" : "40px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      
-      for (let i = 0; i < 12; i++) {
-        const lambdaDeg = i * 30 + 15;
-        const lambda = lambdaDeg * Math.PI / 180;
-        const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
-        const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
-        let { x, y, z } = toHorizontal(ra, dec, angle);
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const p = project(x, y, z);
-        if (p) ctx.fillText(zodiacSymbols[i], p.sx, p.sy);
-      }
-    }
-
-    function drawRA12Lines() {
-      if (!ra12LinesVisible) return; 
-      ctx.strokeStyle = "blue";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 3]);
-      
-      // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      
-      for (let i = 0; i < 12; i++) {
-        const RAconst = i * (30 * Math.PI / 180);
-        let started = false;
-        ctx.beginPath();
-        const steps = isRotating ? 25 : 40; // 50 → 25-40 (50-20%削減)
-        for (let j = 0; j <= steps; j++) {
-          const dec = -Math.PI / 2 + (Math.PI * (j / steps));
-          let { x, y, z } = toHorizontal(RAconst, dec, angle);
-          ({ x, y, z } = applyAllRotations(x, y, z));
-          const p = project(x, y, z);
-          if (p) {
-            if (!started) { 
-              ctx.moveTo(p.sx, p.sy); 
-              started = true; 
-            } else { 
-              ctx.lineTo(p.sx, p.sy); 
-            }
-          } else {
-            if (started) {
-              ctx.stroke();
-              started = false;
-            }
-          }
-        }
-        if (started) { ctx.stroke(); }
-      }
-    }
-
-    // ★★★ 赤緯線 (Declination Lines) の描画 ★★★
-    function drawDeclinationLines() {
-      if (!declinationLinesVisible) return;
-      
-      // 赤道よりも20%暗い赤色を使用
-      ctx.strokeStyle = "#a32929";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 3]); // 点線
-      
-      // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
-      const currentTime = window.currentFrameTime || Date.now();
-      const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
-      
-      // -80° から +80° まで 10度間隔で描画
-      for (let decDeg = -80; decDeg <= 80; decDeg += 10) {
-        const decRad = decDeg * Math.PI / 180;
-        let started = false;
-        ctx.beginPath();
-        
-        // 動的品質調整: 回転中は大幅軽量化、静止時は高品質
-        const steps = isRotating ? 24 : 48; // 72 → 24-48 (66-33%削減)
-        for (let i = 0; i <= steps; i++) {
-          const raRad = (i * 360 / steps) * Math.PI / 180;
-          let { x, y, z } = toHorizontal(raRad, decRad, angle);
-          ({ x, y, z } = applyAllRotations(x, y, z));
-          const p = project(x, y, z);
-          
-          if (p) {
-            if (!started) {
-              ctx.moveTo(p.sx, p.sy);
-              started = true;
-            } else {
-              ctx.lineTo(p.sx, p.sy);
-            }
-          } else {
-            if (started) {
-              ctx.stroke();
-              started = false;
-            }
-          }
-        }
-        if (started) { ctx.stroke(); }
-      }
-      
-      // 点線リセット
-      ctx.setLineDash([]);
-    }
-
-    // ★★★ 方角 (Cardinal Directions) の描画 ★★★
-    // ※ 以前は地平線に垂直に回転して表示していましたが、今回は固定の向き（水平）で描画します。
-    function drawCardinalDirections() {
-      if (!directionVisible) return;
-      const directions = [
-        { label: "N", az: 0 },
-        { label: "E", az: Math.PI / 2 },
-        { label: "S", az: Math.PI },
-        { label: "W", az: 3 * Math.PI / 2 },
-      ];
-      for (let d of directions) {
-        let az = d.az;
-        let x = Math.sin(az);
-        let y = -Math.cos(az);
-        let z = 0;
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const p = project(x, y, z);
-        if (p) {
-          // 中心からの方向を計算して、少し外側へオフセット
-          const dx = p.sx - centerX;
-          const dy = p.sy - centerY;
-          const radialAngle = Math.atan2(dy, dx);
-          const offset = directionTextSize * 0.7;
-          const offsetX = Math.cos(radialAngle) * offset;
-          const offsetY = Math.sin(radialAngle) * offset;
-          ctx.save();
-          ctx.translate(p.sx + offsetX, p.sy + offsetY);
-          // テキストは固定の向き（回転なし）で描画
-          ctx.font = directionTextSize + "px sans-serif";
-          ctx.fillStyle = directionTextColor;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(d.label, 0, 0);
-          ctx.restore();
-        }
-      }
-    }
-
-    function drawZenithNadir() {
-      if (!showZenithNadir) return;
-
-      const markerColor = "#ff0000";
-      const markerRadius = 2.5;
-
-      function renderMarker(x, y, z, label, labelOffsetY) {
-        ({ x, y, z } = applyAllRotations(x, y, z));
-        const projected = project(x, y, z);
-        if (!projected) return;
-        ctx.beginPath();
-        ctx.arc(projected.sx, projected.sy, markerRadius, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillText(label, projected.sx, projected.sy + labelOffsetY);
-      }
-
-      ctx.save();
-      ctx.fillStyle = markerColor;
-      ctx.strokeStyle = markerColor;
-      ctx.lineWidth = 1;
-      ctx.font = "bold 12px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      renderMarker(0, 0, 1, "Z", -12);
-      renderMarker(0, 0, -1, "N", 12);
-
-      ctx.restore();
-    }
-
-    async function initStars() {
-      const rawStars = await loadStars();
-      starsData = rawStars
-        .map(star => ({
-          ...star,
-          RAdeg: convertRA(star.RAhms),
-          Decdeg: convertDec(star.DEdms)
-        }))
-        .filter(star => !isNaN(star.RAdeg) && !isNaN(star.Decdeg));
-      await updateAllPositions();
-    }
-
-    // ★★★ 最適化されたアニメーションループ ★★★
-    let lastRotationZ = 0;
-    let lastRotationY = 0; 
-    let lastRotationEW = 0;
-    let staticElementsCache = null;
-    
-    function animate() {
-      requestAnimationFrame(animate);
-      
-      // ★★★ 長時間動作最適化: フレーム共通値の事前計算 ★★★
-      const frameTime = Date.now(); // 1回だけ取得
-      
-      if (isPlaying) {
-        angle += 0.002 * playbackSpeed;
-        currentDate.setSeconds(currentDate.getSeconds() + playbackSpeed);
-        updateAllPositions();
-        window.lastRotationTime = frameTime; // 自動回転の検出
-      }
-      
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // 回転状態の変化を検出（数値比較で最適化）
-      const rotationChanged = (
-        Math.abs(rotationZ - lastRotationZ) > 0.001 ||
-        Math.abs(rotationY - lastRotationY) > 0.001 ||
-        Math.abs(rotationEW - lastRotationEW) > 0.001
-      );
-      if (rotationChanged) {
-        lastRotationZ = rotationZ;
-        lastRotationY = rotationY; 
-        lastRotationEW = rotationEW;
-        window.lastRotationTime = frameTime;
-      }
-      
-      // 回転状態をグローバルに共有（各描画関数でDate.now()呼び出し不要）
-      window.currentFrameTime = frameTime;
-      
-      // 背景要素の描画（一部を条件付きで最適化）
-      drawStars();
-      drawHorizon();
-      drawAltitudeGrid();
-      drawMeridian();
-      drawEquator();
-      drawEcliptic();
-      drawEclipticBand();
-      drawZodiacDivisions();
-      drawZodiacSymbols();
-      drawRA12Lines();
-      drawDeclinationLines();
-      drawCardinalDirections();
-      drawZenithNadir();
-
-      // 太陽系天体の描画（常に更新が必要）
-      drawSun();
-      drawMoon();
-      drawPlanets();
-      
-      // ★★★ デバッグ情報更新 ★★★
-      updateDebugInfo();
-    }
-
-    initStars().then(() => { animate(); });
   }
-  
+
+  // ★★★ 赤緯線 (Declination Lines) の描画 ★★★
+  function drawDeclinationLines() {
+    if (!declinationLinesVisible) return;
+
+    // 赤道よりも20%暗い赤色を使用
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)'; //"#611717",#a32929
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([]); // 点線[5, 3]
+
+    // ★★★ パフォーマンス最適化: 回転状態に応じた動的品質調整 ★★★
+    const currentTime = window.currentFrameTime || Date.now();
+    const isRotating = (currentTime - (window.lastRotationTime || 0)) < 150;
+
+    // -80° から +80° まで 10度間隔で描画
+    for (let decDeg = -80; decDeg <= 80; decDeg += 10) {
+      const decRad = decDeg * Math.PI / 180;
+      let started = false;
+      ctx.beginPath();
+
+      // 動的品質調整: 回転中は大幅軽量化、静止時は高品質
+      const steps = isRotating ? 24 : 48; // 72 → 24-48 (66-33%削減)
+      for (let i = 0; i <= steps; i++) {
+        const raRad = (i * 360 / steps) * Math.PI / 180;
+        let { x, y, z } = toHorizontal(raRad, decRad, celestialAngle);
+        ({ x, y, z } = applyAllRotations(x, y, z));
+        const p = project(x, y, z);
+
+        if (p) {
+          if (!started) {
+            ctx.moveTo(p.sx, p.sy);
+            started = true;
+          } else {
+            ctx.lineTo(p.sx, p.sy);
+          }
+        } else {
+          if (started) {
+            ctx.stroke();
+            started = false;
+          }
+        }
+      }
+      if (started) { ctx.stroke(); }
+    }
+
+    // 点線リセット
+    ctx.setLineDash([]);
+  }
+
+  // ★★★ 方角 (Cardinal Directions) の描画 ★★★
+  // ※ 以前は地平線に垂直に回転して表示していましたが、今回は固定の向き（水平）で描画します。
+  function drawCardinalDirections() {
+    if (!directionVisible) return;
+    const directions = [
+      { label: "N", az: 0 },
+      { label: "E", az: Math.PI / 2 },
+      { label: "S", az: Math.PI },
+      { label: "W", az: 3 * Math.PI / 2 },
+    ];
+    for (let d of directions) {
+      let az = d.az;
+      let x = Math.sin(az);
+      let y = -Math.cos(az);
+      let z = 0;
+      ({ x, y, z } = applyAllRotations(x, y, z));
+      const p = project(x, y, z);
+      if (p) {
+        // 中心からの方向を計算して、少し外側へオフセット
+        const dx = p.sx - centerX;
+        const dy = p.sy - centerY;
+        const radialAngle = Math.atan2(dy, dx);
+        const offset = directionTextSize * 0.7;
+        const offsetX = Math.cos(radialAngle) * offset;
+        const offsetY = Math.sin(radialAngle) * offset;
+        ctx.save();
+        ctx.translate(p.sx + offsetX, p.sy + offsetY);
+        // テキストは固定の向き（回転なし）で描画
+        ctx.font = directionTextSize + "px sans-serif";
+        ctx.fillStyle = directionTextColor;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(d.label, 0, 0);
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawZenithNadir() {
+    if (!showZenithNadir) return;
+
+    const markerColor = "#ff0000";
+    const markerRadius = 2.5;
+
+    function renderMarker(x, y, z, label, labelOffsetY) {
+      ({ x, y, z } = applyAllRotations(x, y, z));
+      const projected = project(x, y, z);
+      if (!projected) return;
+      ctx.beginPath();
+      ctx.arc(projected.sx, projected.sy, markerRadius, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillText(label, projected.sx, projected.sy + labelOffsetY);
+    }
+
+    ctx.save();
+    ctx.fillStyle = markerColor;
+    ctx.strokeStyle = markerColor;
+    ctx.lineWidth = 1;
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    renderMarker(0, 0, 1, "Z", -12);
+    renderMarker(0, 0, -1, "N", 12);
+
+    ctx.restore();
+  }
+
+  async function initStars() {
+    const rawStars = await loadStars();
+    starsData = rawStars
+      .map(star => ({
+        ...star,
+        RAdeg: convertRA(star.RAhms),
+        Decdeg: convertDec(star.DEdms)
+      }))
+      .filter(star => !isNaN(star.RAdeg) && !isNaN(star.Decdeg));
+    await updateAllPositions();
+  }
+
+  // ★★★ 最適化されたアニメーションループ ★★★
+  let lastRotationZ = 0;
+  let lastRotationY = 0;
+  let lastRotationEW = 0;
+  let staticElementsCache = null;
+
+  // ★ ADDED (Phase 1): Request render function for dirty rendering
+  requestRender = function () {
+    if (rafId === null) {
+      rafId = requestAnimationFrame(renderFrame);
+    }
+  };
+
+  // ★ ADDED: requestRenderをwindowオブジェクトに公開（chart.jsからアクセスするため）
+  window.requestRender = requestRender;
+
+  // ★ MODIFIED (Phase 1): Renamed from animate() to renderFrame()
+  function renderFrame() {
+    rafId = null;
+    safariFrameCount++;
+
+    // ★★★ Safari最適化: 定期的にCanvas contextをリセット ★★★
+    if (isSafari && ctx.reset && safariFrameCount % 600 === 0) {
+      ctx.reset();
+      // ★ DEBUG: Safari開発時のみログ出力（本番ではコメントアウト）
+      // console.log('[Safari] Canvas context reset at frame', safariFrameCount);
+    }
+
+    // ★★★ 長時間動作最適化: フレーム共通値の事前計算 ★★★
+    const frameTime = Date.now(); // 1回だけ取得
+
+    if (isPlaying) {
+      // ★★★ LST制御: celestialAngleの手動更新を無効化（updateAllPositionsでLSTから計算） ★★★
+      // celestialAngle += 0.002 * playbackSpeed; // ← 無効化：LSTから自動計算
+      currentDate.setSeconds(currentDate.getSeconds() + playbackSpeed);
+
+      // ★ MODIFIED (Phase 1): Throttle ephemeris calculations
+      const now = performance.now();
+      if (now - lastEphemerisUpdate > EPHEMERIS_INTERVAL) {
+        updateAllPositions();
+        lastEphemerisUpdate = now;
+      }
+
+      window.lastRotationTime = frameTime; // 自動回転の検出
+
+      // ★ ADDED (Phase 1): Continue animation loop
+      requestRender();
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 回転状態の変化を検出（数値比較で最適化）
+    const rotationChanged = (
+      Math.abs(rotationZ - lastRotationZ) > 0.001 ||
+      Math.abs(rotationY - lastRotationY) > 0.001 ||
+      Math.abs(rotationEW - lastRotationEW) > 0.001
+    );
+    if (rotationChanged) {
+      lastRotationZ = rotationZ;
+      lastRotationY = rotationY;
+      lastRotationEW = rotationEW;
+      window.lastRotationTime = frameTime;
+    }
+
+    // 回転状態をグローバルに共有（各描画関数でDate.now()呼び出し不要）
+    window.currentFrameTime = frameTime;
+
+    // 背景要素の描画（一部を条件付きで最適化）
+    drawStars();
+    drawHorizon();
+    drawAltitudeGrid();
+    drawMeridian();
+    drawPrimeVertical();
+    drawEquator();
+    drawLunarOrbit3D();  // 白道描画（黄道と赤道の間）
+    drawEcliptic();
+    drawEclipticBand();
+    drawZodiacDivisions();
+    drawZodiacSymbols();
+    drawRA12Lines();
+    drawDeclinationLines();
+    drawCardinalDirections();
+    drawZenithNadir();
+
+    // 太陽系天体の描画（常に更新が必要）
+    drawSun();
+    drawMoon();
+    drawPlanets();
+
+    // ★★★ 恒星名の描画（最後に追加） ★★★
+    if (typeof drawStarNames === 'function') {
+      drawStarNames(
+        ctx,
+        celestialAngle,
+        latitude,
+        starNamesVisible,
+        applyDepthShading,
+        toHorizontal,
+        applyAllRotations,
+        project
+      );
+    }
+
+    // ★★★ デバッグ情報更新 ★★★
+    // ★ MODIFIED (Phase 1): Store debug values instead of updating DOM directly
+    const lst = (celestialAngle * 180 / Math.PI / 15) % 24;
+    debugValues.lst = lst.toFixed(2);
+    debugValues.date = currentDate.toLocaleString();
+    // Other debug values...
+  }
+
+  // ★ ADDED (Phase 1): Throttled DOM update for debug info
+  setInterval(() => {
+    if (debugValues.lst !== undefined) {
+      const lstDisplay = document.getElementById('lstDisplay');
+      if (lstDisplay) lstDisplay.textContent = debugValues.lst;
+    }
+    if (debugValues.date !== undefined) {
+      const dateDisplay = document.getElementById('dateDisplay');
+      if (dateDisplay) dateDisplay.textContent = debugValues.date;
+    }
+  }, 250);
+
+
+  // ★★★ 日付送り機能 ★★★
+  let dateControlInterval = null;  // setIntervalのID
+  let dateControlMode = 'pause';   // 'pause', 'rewind-fast', 'forward-fast'
+
+  // 日付を1日進める/戻す
+  function changeDateByDays(days) {
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() + days);
+    currentDate = newDate;
+
+    // 日付入力フィールドを更新
+    const datetimeInput = document.getElementById('datetimeInput');
+    if (datetimeInput) {
+      const yyyy = newDate.getFullYear();
+      const mm = String(newDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(newDate.getDate()).padStart(2, '0');
+      const hh = String(newDate.getHours()).padStart(2, '0');
+      const min = String(newDate.getMinutes()).padStart(2, '0');
+      datetimeInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+
+      // ★ changeイベントを発火してchart.jsに通知
+      // chart.jsがchartCanvasの表示状態を確認して更新する
+      datetimeInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // 天球を更新
+    updateAllPositions();
+    requestRender();
+  }
+
+  // 自動送りを開始
+  function startDateControl(mode) {
+    stopDateControl();  // 既存の自動送りを停止
+
+    dateControlMode = mode;
+    const days = (mode === 'rewind-fast') ? -1 : 1;
+
+    dateControlInterval = setInterval(() => {
+      changeDateByDays(days);
+    }, 500);  // 0.5秒ごとに実行
+
+    updateDateControlButtons();
+  }
+
+  // 自動送りを停止
+  function stopDateControl() {
+    if (dateControlInterval !== null) {
+      clearInterval(dateControlInterval);
+      dateControlInterval = null;
+    }
+    dateControlMode = 'pause';
+    updateDateControlButtons();
+  }
+
+  // ボタンの選択状態を更新
+  function updateDateControlButtons() {
+    const buttons = {
+      'rewindFastBtn': 'rewind-fast',
+      'pauseDateBtn': 'pause',
+      'forwardFastBtn': 'forward-fast'
+    };
+
+    for (const [btnId, mode] of Object.entries(buttons)) {
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        if (dateControlMode === mode) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      }
+    }
+  }
+
+  // 今日に戻す
+  function resetToToday() {
+    stopDateControl();
+    currentDate = new Date();
+
+    // 日付入力フィールドを更新
+    const datetimeInput = document.getElementById('datetimeInput');
+    if (datetimeInput) {
+      const yyyy = currentDate.getFullYear();
+      const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(currentDate.getDate()).padStart(2, '0');
+      const hh = String(currentDate.getHours()).padStart(2, '0');
+      const min = String(currentDate.getMinutes()).padStart(2, '0');
+      datetimeInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+
+      // ★ changeイベントを発火
+      datetimeInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // 天球を更新
+    updateAllPositions();
+    requestRender();
+  }
+
+  // 日付送りコントロールの初期化
+  function initDateNavigationControls() {
+    const rewindFastBtn = document.getElementById('rewindFastBtn');
+    const rewindBtn = document.getElementById('rewindBtn');
+    const pauseDateBtn = document.getElementById('pauseDateBtn');
+    const forwardBtn = document.getElementById('forwardBtn');
+    const forwardFastBtn = document.getElementById('forwardFastBtn');
+    const todayBtn = document.getElementById('todayBtn');
+
+    if (rewindFastBtn) {
+      rewindFastBtn.addEventListener('click', () => {
+        startDateControl('rewind-fast');
+      });
+    }
+
+    if (rewindBtn) {
+      rewindBtn.addEventListener('click', () => {
+        stopDateControl();
+        changeDateByDays(-1);
+      });
+    }
+
+    if (pauseDateBtn) {
+      pauseDateBtn.addEventListener('click', () => {
+        stopDateControl();
+      });
+    }
+
+    if (forwardBtn) {
+      forwardBtn.addEventListener('click', () => {
+        stopDateControl();
+        changeDateByDays(1);
+      });
+    }
+
+    if (forwardFastBtn) {
+      forwardFastBtn.addEventListener('click', () => {
+        startDateControl('forward-fast');
+      });
+    }
+
+    if (todayBtn) {
+      todayBtn.addEventListener('click', () => {
+        resetToToday();
+      });
+    }
+
+    // 日付入力フィールドの変更時に自動送りを停止
+    const datetimeInput = document.getElementById('datetimeInput');
+    if (datetimeInput) {
+      datetimeInput.addEventListener('input', () => {
+        stopDateControl();
+      });
+    }
+
+    // 初期状態: ■ボタンを選択状態に
+    updateDateControlButtons();
+  }
+
   // DOMContentLoaded後にinitApp実行
   document.addEventListener('DOMContentLoaded', initApp);
+
+  initStars().then(() => { requestRender(); });
+
+  // ★★★ 日付送り機能の初期化 ★★★
+  initDateNavigationControls();
+}
+
+// DOMContentLoaded後にinitApp実行
+document.addEventListener('DOMContentLoaded', initApp);
+
+// ==========================================
+// External API for Time Control (Bridge)
+// ==========================================
+window.Sphere10 = window.Sphere10 || {};
+
+// 外部から日時をセットし、再描画をトリガーする
+window.Sphere10.setDate = function (date) {
+  if (date instanceof Date && !isNaN(date)) {
+    // sphere10.js のグローバル変数 currentDate を更新
+    // 注意: currentDate がこのファイルのトップレベルで定義されていることを前提としています
+    if (typeof currentDate !== 'undefined') {
+      currentDate = date;
+    }
+
+    // 天体位置計算と描画リクエスト
+    if (typeof updateCelestialPositions === 'function') updateCelestialPositions();
+    if (typeof requestRender === 'function') requestRender();
+  }
+};
+
+// 現在の日時を取得
+window.Sphere10.getDate = function () {
+  if (typeof currentDate !== 'undefined') {
+    return currentDate;
+  }
+  return new Date();
+};

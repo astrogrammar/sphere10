@@ -1,0 +1,154 @@
+{
+  "横浜市": {
+    "latitude": 35.4437,
+    "longitude": 139.6380
+  },
+  "東京": {
+    "latitude": 35.6762,
+    "longitude": 139.6503
+  },
+  "Tokyo": {
+    "latitude": 35.6762,
+    "longitude": 139.6503
+  },
+  "大阪": {
+    "latitude": 34.6937,
+    "longitude": 135.5023
+  },
+  "Osaka": {
+    "latitude": 34.6937,
+    "longitude": 135.5023
+  },
+  "京都": {
+    "latitude": 35.0116,
+    "longitude": 135.7681
+  },
+  "Kyoto": {
+    "latitude": 35.0116,
+    "longitude": 135.7681
+  },
+  "札幌": {
+    "latitude": 43.0642,
+    "longitude": 141.3469
+  },
+  "Sapporo": {
+    "latitude": 43.0642,
+    "longitude": 141.3469
+  },
+  "福岡": {
+    "latitude": 33.5904,
+    "longitude": 130.4017
+  },
+  "Fukuoka": {
+    "latitude": 33.5904,
+    "longitude": 130.4017
+  },
+  "名古屋": {
+    "latitude": 35.1815,
+    "longitude": 136.9066
+  },
+  "Nagoya": {
+    "latitude": 35.1815,
+    "longitude": 136.9066
+  },
+  "仙台": {
+    "latitude": 38.2682,
+    "longitude": 140.8694
+  },
+  "Sendai": {
+    "latitude": 38.2682,
+    "longitude": 140.8694
+  },
+  "広島": {
+    "latitude": 34.3853,
+    "longitude": 132.4553
+  },
+  "Hiroshima": {
+    "latitude": 34.3853,
+    "longitude": 132.4553
+  },
+  "神戸": {
+    "latitude": 34.6901,
+    "longitude": 135.1955
+  },
+  "Kobe": {
+    "latitude": 34.6901,
+    "longitude": 135.1955
+  },
+  "奈良": {
+    "latitude": 34.6851,
+    "longitude": 135.8048
+  },
+  "Nara": {
+    "latitude": 34.6851,
+    "longitude": 135.8048
+  },
+  "London": {
+    "latitude": 51.5074,
+    "longitude": -0.1278
+  },
+  "Paris": {
+    "latitude": 48.8566,
+    "longitude": 2.3522
+  },
+  "New York": {
+    "latitude": 40.7128,
+    "longitude": -74.0060
+  },
+  "Los Angeles": {
+    "latitude": 34.0522,
+    "longitude": -118.2437
+  },
+  "Berlin": {
+    "latitude": 52.5200,
+    "longitude": 13.4050
+  },
+  "Rome": {
+    "latitude": 41.9028,
+    "longitude": 12.4964
+  },
+  "Athens": {
+    "latitude": 37.9838,
+    "longitude": 23.7275
+  },
+  "Cairo": {
+    "latitude": 30.0444,
+    "longitude": 31.2357
+  },
+  "Mumbai": {
+    "latitude": 19.0760,
+    "longitude": 72.8777
+  },
+  "Delhi": {
+    "latitude": 28.7041,
+    "longitude": 77.1025
+  },
+  "Bangkok": {
+    "latitude": 13.7563,
+    "longitude": 100.5018
+  },
+  "Singapore": {
+    "latitude": 1.3521,
+    "longitude": 103.8198
+  },
+  "Sydney": {
+    "latitude": -33.8688,
+    "longitude": 151.2093
+  },
+  "Melbourne": {
+    "latitude": -37.8136,
+    "longitude": 144.9631
+  },
+  "Auckland": {
+    "latitude": -36.8485,
+    "longitude": 174.7633
+  },
+  "Jerusalem": {
+    "latitude": 31.7683,
+    "longitude": 35.2137
+  },
+  "Istanbul": {
+    "latitude": 41.0082,
+    "longitude": 28.9784
+  }
+}
