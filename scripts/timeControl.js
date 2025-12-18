@@ -35,6 +35,8 @@
     let playInterval = null;
     let playDirection = 0; // -2, -1, 0, 1, 2
     const PLAY_SPEED_MS = 33; // ~30fps
+    const MIN_YEAR = 1;
+    const MAX_YEAR = 3000;
 
     // ============================================================
     // Initialization
@@ -42,6 +44,7 @@
     function init() {
         setupDrag(panel, panelHeader);
         setupEventListeners();
+        setUnit(currentUnit); // Ensure UI matches default unit
 
         // Initial sync from Sphere10 core
         if (window.Sphere10 && window.Sphere10.getDate) {
@@ -102,6 +105,7 @@
                 const newDate = new Date(isoDateStr);
 
                 if (!isNaN(newDate.getTime())) {
+                    validateAndClampDate(newDate); // Clamp year
                     setDate(newDate);
                     e.target.blur(); // Remove focus
                 } else {
@@ -128,6 +132,16 @@
             if (opt.dataset.unit === unit) opt.classList.add('selected');
             else opt.classList.remove('selected');
         });
+    }
+
+    function validateAndClampDate(date) {
+        let year = date.getFullYear();
+        if (year < MIN_YEAR) {
+            date.setFullYear(MIN_YEAR);
+        } else if (year > MAX_YEAR) {
+            date.setFullYear(MAX_YEAR);
+        }
+        return date;
     }
 
     function getCurrentDate() {
@@ -202,6 +216,7 @@
             case 'year': date.setFullYear(date.getFullYear() + direction); break;
         }
 
+        validateAndClampDate(date);
         setDate(date);
     }
 

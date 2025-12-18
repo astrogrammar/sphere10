@@ -1316,13 +1316,38 @@ function initApp() {
 
     const drawStart = debugMode ? performance.now() : 0;
 
+    // 歳差行列の取得 (window.Precession が存在する場合のみ)
+    let precessionMat = null;
+    if (window.Precession && typeof window.Precession.getMatrix === 'function') {
+      precessionMat = window.Precession.getMatrix(currentDate);
+    }
+
     // 星を色とサイズでグループ化してバッチ描画
     // ★ MODIFIED: 奥行き暗化対応（αもグループ化のキーに含める）
     const starGroups = new Map();
 
     for (const star of starsData) {
-      const ra = star.RAdeg * Math.PI / 180;
-      const dec = star.Decdeg * Math.PI / 180;
+      // 元のJ2000座標 (initStarsで事前計算済み)
+      let sx = star.x;
+      let sy = star.y;
+      let sz = star.z;
+      let ra, dec;
+
+      // 歳差補正の適用
+      if (precessionMat) {
+        // window.Precession.apply は {x, y, z} を返す
+        const p = window.Precession.apply(sx, sy, sz, precessionMat);
+        // 歳差適用後の座標から赤経・赤緯(Date)を逆算
+        const xyProj = Math.sqrt(p.x * p.x + p.y * p.y);
+        dec = Math.atan2(p.z, xyProj);
+        ra = Math.atan2(p.y, p.x);
+        if (ra < 0) ra += 2 * Math.PI;
+      } else {
+        // 歳差なし: 事前計算済みのJ2000赤経・赤緯を使用
+        ra = star.raRad;
+        dec = star.decRad;
+      }
+
       let { x, y, z } = toHorizontal(ra, dec, celestialAngle);
       ({ x, y, z } = applyAllRotations(x, y, z));
       const p = project(x, y, z);
@@ -2102,11 +2127,24 @@ function initApp() {
   async function initStars() {
     const rawStars = await loadStars();
     starsData = rawStars
-      .map(star => ({
-        ...star,
-        RAdeg: convertRA(star.RAhms),
-        Decdeg: convertDec(star.DEdms)
-      }))
+      .map(star => {
+        const RAdeg = convertRA(star.RAhms);
+        const Decdeg = convertDec(star.DEdms);
+        // 歳差計算用にJ2000直交座標を事前計算
+        const raRad = RAdeg * Math.PI / 180;
+        const decRad = Decdeg * Math.PI / 180;
+        const cosDec = Math.cos(decRad);
+        return {
+          ...star,
+          RAdeg,
+          Decdeg,
+          raRad,
+          decRad,
+          x: cosDec * Math.cos(raRad),
+          y: cosDec * Math.sin(raRad),
+          z: Math.sin(decRad)
+        };
+      })
       .filter(star => !isNaN(star.RAdeg) && !isNaN(star.Decdeg));
     await updateAllPositions();
   }
