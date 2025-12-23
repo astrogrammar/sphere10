@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="favicon_io/favicon.ico">
-  <link rel="stylesheet" href="./css/ui.css">
+  <link rel="stylesheet" href="./css/ui.css?2512">
   <link rel="stylesheet" href="./css/chart.css">
   <title>Sphere10 立体天球ホロスコープ v3.0</title>
+  <!-- The Real Astrology Web App Made in Japan enhanced by US AI technology -->
   <style>
     /* 基本的なページレイアウト（天体表示部分のみ） */
     a:link,
@@ -65,20 +65,20 @@
       <!-- 回転セクション -->
       <div class="section">
         <h3 class="section-header" data-section="rotation">
-          <span>回転 ROTATION</span>
+          <span><span class="lang-en">ROTATION</span><span class="lang-ja">回転</span></span>
           <span class="toggle-icon">▼</span>
         </h3>
         <div class="section-content" id="rotation-content">
           <!-- スライダーは残しつつ、マウスドラッグで操作可能にします -->
-          <label>水平 Horizontal
+          <label><span class="lang-en">Horizontal</span><span class="lang-ja">水平</span>
             <input type="range" id="rotationZSlider" min="-180" max="180" value="0">
             <span id="rotationZVal">0°</span>
           </label>
-          <label>南北 North/South
+          <label><span class="lang-en">North/South</span><span class="lang-ja">南北</span>
             <input type="range" id="rotationYSlider" min="-90" max="90" value="0">
             <span id="rotationYVal">0°</span>
           </label>
-          <label id="EastWest">東西 East/West
+          <label id="EastWest"><span class="lang-en">East/West</span><span class="lang-ja">東西</span>
             <input type="range" id="rotationEWSlider" min="-90" max="90" value="0">
             <span id="rotationEWVal">0°</span>
           </label>
@@ -88,54 +88,54 @@
       <!-- 指標セクション -->
       <div class="section">
         <h3 class="section-header" data-section="indicator">
-          <span>指標 INDICATOR</span>
+          <span><span class="lang-en">INDICATOR</span><span class="lang-ja">指標</span></span>
           <span class="toggle-icon">▼</span>
         </h3>
         <div class="section-content" id="indicator-content">
           <!-- ★★★ ここから追加した表示系トグル ★★★ -->
           <label>
             <input type="checkbox" id="horizonToggle" checked>
-            地平線 Horizon
+            <span class="lang-en">Horizon</span><span class="lang-ja">地平線</span>
           </label>
           <label>
             <input type="checkbox" id="meridianToggle" checked>
-            子午線 Meridian
+            <span class="lang-en">Meridian</span><span class="lang-ja">子午線</span>
           </label>
           <label>
-            <input type="checkbox" id="primeVerticalToggle" checked>
-            卯酉線 Prime Vertical
+            <input type="checkbox" id="primeVerticalToggle">
+            <span class="lang-en">Prime Vertical</span><span class="lang-ja">卯酉線</span>
           </label>
           <label>
             <input type="checkbox" id="equatorToggle" checked>
-            赤道 Equator
+            <span class="lang-en">Equator</span><span class="lang-ja">赤道</span>
           </label>
           <label>
             <input type="checkbox" id="eclipticToggle" checked>
-            黄道 Ecliptic
+            <span class="lang-en">Ecliptic</span><span class="lang-ja">黄道</span>
           </label>
           <label>
             <input type="checkbox" id="eclipticBandToggle" checked>
-            獣帯 Zodiac
+            <span class="lang-en">Zodiac</span><span class="lang-ja">獣帯</span>
           </label>
           <label>
             <input type="checkbox" id="lunarOrbitToggle">
-            白道 Lunar Orbit
+            <span class="lang-en">Lunar Orbit</span><span class="lang-ja">白道</span>
           </label>
           <label>
-            <input type="checkbox" id="ra12LinesToggle" checked>
-            赤経 RA
+            <input type="checkbox" id="ra12LinesToggle">
+            <span class="lang-en">RA</span><span class="lang-ja">赤経</span>
           </label>
           <label>
-            <input type="checkbox" id="declinationLinesToggle" checked>
-            赤緯 DEC
+            <input type="checkbox" id="declinationLinesToggle">
+            <span class="lang-en">DEC</span><span class="lang-ja">赤緯</span>
           </label>
           <label>
-            <input type="checkbox" id="altGridToggle" checked>
-            高度 Altitude
+            <input type="checkbox" id="altGridToggle">
+            <span class="lang-en">Altitude</span><span class="lang-ja">高度</span>
           </label>
           <label>
-            <input type="checkbox" id="zenithNadirToggle" checked aria-label="Toggle Zenith/Nadir markers">
-            天頂 Zenith/Nadir
+            <input type="checkbox" id="zenithNadirToggle" aria-label="Toggle Zenith/Nadir markers">
+            <span class="lang-en">Zenith/Nadir</span><span class="lang-ja">天頂・天底</span>
           </label>
           <!-- ★★★ 追加部分ここまで ★★★ -->
         </div>
@@ -144,45 +144,45 @@
       <!-- 補助セクション -->
       <div class="section">
         <h3 class="section-header" data-section="option">
-          <span>補助 OPTION</span>
+          <span><span class="lang-en">OPTION</span><span class="lang-ja">補助</span></span>
           <span class="toggle-icon">▼</span>
         </h3>
         <div class="section-content" id="option-content">
           <!-- ★★★ 既存の表示系トグル ★★★ -->
           <label>
             <input type="checkbox" id="starToggle" checked>
-            恒星 Fixed Stars
+            <span class="lang-en">Fixed Stars</span><span class="lang-ja">恒星</span>
           </label>
           <!-- ★★★ 恒星名表示トグル ★★★ -->
           <label>
             <input type="checkbox" id="starNamesToggle">
-            星名 Star Names
+            <span class="lang-en">Star Names</span><span class="lang-ja">星名</span>
           </label>
           <label>
             <input type="checkbox" id="backToggle">
-            透明 Transparent
+            <span class="lang-en">Transparent</span><span class="lang-ja">透明</span>
           </label>
           <!-- ★★★ 惑星ラベルのトグルを追加 ★★★ -->
           <label>
             <input type="checkbox" id="planetLabelToggle">
-            惑星 Planet Labels
+            <span class="lang-en">Planet Labels</span><span class="lang-ja">惑星名</span>
           </label>
           <!-- ★★★ 新規追加: 東西反転トグル ★★★ -->
           <label>
             <input type="checkbox" id="reverseEWToggle">
-            反転 Flip ◀|▶
+            <span class="lang-en">Flip ◀|▶</span><span class="lang-ja">反転 ◀|▶</span>
           </label>
           <!-- ★★★ 方角表示設定 ★★★ -->
           <label>
             <input type="checkbox" id="directionToggle" checked>
-            方角 Direction
+            <span class="lang-en">Direction</span><span class="lang-ja">方角</span>
           </label>
           <div style="display:none">
-            <label>文字サイズ
+            <label><span class="lang-en">Text Size</span><span class="lang-ja">文字サイズ</span>
               <input type="range" id="directionTextSize" min="10" max="60" value="30">
               <span id="directionTextSizeVal">16px</span>
             </label>
-            <label>文字色
+            <label><span class="lang-en">Text Color</span><span class="lang-ja">文字色</span>
               <input type="color" id="directionTextColor" value="#ff0000">
             </label>
           </div>
@@ -192,7 +192,7 @@
       <!-- 観測地設定セクション -->
       <div class="section">
         <h3 class="section-header" data-section="location">
-          <span>観測地 LOCATION</span>
+          <span><span class="lang-en">LOCATION</span><span class="lang-ja">観測地</span></span>
           <span class="toggle-icon">▼</span>
         </h3>
         <div class="section-content" id="location-content">
@@ -203,7 +203,7 @@
             <!-- 地名検索 -->
             <label for="placeInput" style="display:none">Place</label>
             <input type="text" id="placeInput" placeholder="Place Search (e.g., Tokyo)">
-            <button id="searchPlaceButton">検索 Search</button>
+            <button id="searchPlaceButton"><span class="lang-en">Search</span><span class="lang-ja">検索</span></button>
 
             <!-- 座標入力 -->
             <label for="latitudeInput">
@@ -230,6 +230,11 @@
           contact
         </a><br>
         astrogrammar.com
+
+        <div class="lang-switcher">
+          <button id="langBtnEn" class="lang-btn active" title="English">🇬🇧</button>
+          <button id="langBtnJa" class="lang-btn" title="Japanese">🇯🇵</button>
+        </div>
       </div>
     </div>
   </div>
@@ -239,48 +244,101 @@
 
   <!-- Right Bottom Dock -->
   <div id="bottomRightDock">
-    <button id="toggleTimePanel">D</button>
-    <button id="toggleZodiacBtn">S</button>
-    <button id="togglePlanetsBtn">☿</button>
+    <button id="btnCapture" title="Capture Screenshot">
+      <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
+    </button>
+    <button id="toggleTimePanel" title="Time Control">
+      <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+    </button>
+    <button id="toggleZodiacBtn" title="Toggle Stars">
+      <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polygon
+          points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+        </polygon>
+      </svg>
+    </button>
+    <button id="togglePlanetsBtn" title="Toggle Horoscope Chart">
+      <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="2" y1="12" x2="22" y2="12"></line>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+      </svg>
+    </button>
   </div>
 
   <!-- Modern Time Control Panel -->
   <div id="timePanel" class="draggable-panel" style="display:flex;">
     <div id="timePanelHeader" class="panel-header">
-      <span class="header-title">📅 Time Control</span>
+      <span class="header-title" style="display: flex; align-items: center;">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round"
+          style="width: 18px; height: 18px; margin-right: 8px; color: #60a5fa;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span class="lang-en">Time Control</span>
+        <span class="lang-ja">日時</span>
+      </span>
       <button id="closeTimePanel" class="close-btn" title="Close">×</button>
     </div>
     <div class="panel-content">
       <div class="time-display-row">
-        <input type="text" id="modernDateInput" class="time-readout" value="----/--/--">
-        <input type="text" id="modernTimeInput" class="time-readout" value="--:--">
+        <div class="digital-group date-group">
+          <input type="number" id="valYear" class="time-part year" placeholder="YYYY">
+          <span class="sep">/</span>
+          <input type="number" id="valMonth" class="time-part month" placeholder="MM" min="1" max="12">
+          <span class="sep">/</span>
+          <input type="number" id="valDay" class="time-part day" placeholder="DD" min="1" max="31">
+        </div>
+        <div class="digital-group time-group">
+          <input type="number" id="valHour" class="time-part hour" placeholder="HH" min="0" max="23">
+          <span class="sep">:</span>
+          <input type="number" id="valMinute" class="time-part minute" placeholder="MM" min="0" max="59">
+        </div>
       </div>
       <div class="vcr-controls">
         <button id="tpRewindFast" class="vcr-btn">◀◀</button>
-        <button id="tpRewind" class="vcr-btn">◀</button>
+        <button id="tpRewind" class="vcr-btn">- ◀</button>
         <button id="tpPlayPause" class="vcr-btn">▶</button>
-        <button id="tpForward" class="vcr-btn">▶</button>
+        <button id="tpForward" class="vcr-btn">▶ +</button>
         <button id="tpForwardFast" class="vcr-btn">▶▶</button>
-        <button id="tpToday" class="vcr-btn small">NOW</button>
+        <button id="tpToday" class="vcr-btn small"><span class="lang-en">NOW</span><span
+            class="lang-ja">現在</span></button>
       </div>
       <div class="unit-settings-wrapper">
         <button id="toggleUnitSettings" class="icon-btn" title="Change Unit/Speed">
-          ⚙️ Unit: <span id="currentUnitDisplay">Minute</span>
+          ⚙️ <span class="lang-en">Unit:</span><span class="lang-ja">単位:</span> <span id="currentUnitDisplay"><span
+              class="lang-en">Minute</span><span class="lang-ja">分</span></span>
         </button>
         <div id="unitSelectorPopup" class="unit-popup hidden">
-          <div class="unit-option selected" data-unit="minute">Minute</div>
-          <div class="unit-option" data-unit="hour">Hour</div>
-          <div class="unit-option" data-unit="day">Day</div>
-          <div class="unit-option" data-unit="month">Month</div>
-          <div class="unit-option" data-unit="year">Year</div>
+          <div class="unit-option selected" data-unit="minute"><span class="lang-en">Minute</span><span
+              class="lang-ja">分</span></div>
+          <div class="unit-option" data-unit="hour"><span class="lang-en">Hour</span><span class="lang-ja">時</span>
+          </div>
+          <div class="unit-option" data-unit="day"><span class="lang-en">Day</span><span class="lang-ja">日</span></div>
+          <div class="unit-option" data-unit="month"><span class="lang-en">Month</span><span class="lang-ja">月</span>
+          </div>
+          <div class="unit-option" data-unit="year"><span class="lang-en">Year</span><span class="lang-ja">年</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="./scripts/lib/store.js"></script>
+  <script src="./scripts/store.js"></script>
   <script src="./scripts/astronomy.browser.min.js"></script>
   <script src="./scripts/precession.js"></script>
+  <script src="./scripts/utilities.js"></script>
   <script src="./scripts/sphere10.js"></script>
   <script src="./scripts/starNames.js"></script>
   <script src="./scripts/lunarOrbit.js"></script>

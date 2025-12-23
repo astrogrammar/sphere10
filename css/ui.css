@@ -74,7 +74,7 @@
 /* コントロールパネル基本スタイル */
 .controls {
   position: absolute;
-  top: 20px;
+  top: 40px;
   left: 20px;
   background: linear-gradient(135deg, rgba(40, 44, 52, 0.8), rgba(30, 34, 42, 0.8));
   backdrop-filter: blur(12px);
@@ -87,7 +87,7 @@
     0 2px 8px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   opacity: 1;
-  width: 280px;
+  width: 250px;
   max-width: 320px;
   overflow: hidden;
   max-height: 90vh;
@@ -218,17 +218,20 @@
 }
 
 /* ラベルとフォーム要素 */
+/* 既存の .controls label を更新 */
 .controls label {
-  display: block;
+  display: flex;
+  /* block から flex に変更 */
+  align-items: center;
+  /* 垂直方向の中央揃えを強制 */
   margin: 0 20px 12px 20px;
   font-size: 12px;
   font-weight: 500;
   color: #cbd5e1;
-  line-height: 1.4;
-}
-
-.controls label input[type="checkbox"] {
-  margin-right: 8px;
+  line-height: 1;
+  /* 行の高さをリセットして計算を安定させる */
+  cursor: pointer;
+  user-select: none;
 }
 
 /* カスタムチェックボックス - 光る効果付き */
@@ -242,9 +245,12 @@
   background: transparent;
   cursor: pointer;
   position: relative;
-  margin-right: 8px;
+  margin: 0 10px 0 0;
+  /* 右側の余白(10px)のみ指定し、上下は0にする */
+  flex-shrink: 0;
+  /* ラベルが狭くなってもチェックボックスを潰さない */
   transition: all 0.3s ease;
-  vertical-align: -2px;
+  /* vertical-align は不要になるため削除 */
 }
 
 .controls input[type="checkbox"]:checked {
@@ -481,99 +487,7 @@
   }
 }
 
-/* ========================================
-   日付送りコントロール
-   ======================================== */
 
-/* 日付送りボタンコンテナ */
-.date-controls {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin: 12px 0;
-}
-
-/* 日付送りボタン */
-.date-control-btn {
-  width: 24px;
-  height: 32px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid #4a9eff;
-  color: white;
-  font-size: 10px;
-  font-weight: normal;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-/* ホバー時 */
-.date-control-btn:hover {
-  background: rgba(74, 158, 255, 0.2);
-  border-color: #5aa9ff;
-  transform: scale(1.05);
-}
-
-/* アクティブ時（選択状態） */
-.date-control-btn.active {
-  background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
-  border-color: #4a9eff;
-  box-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
-}
-
-/* 押下時 */
-.date-control-btn:active {
-  transform: scale(0.95);
-}
-
-/* Todayボタン */
-.today-btn {
-  display: block;
-  margin: 12px auto;
-  padding: 6px 16px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid #4a9eff;
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-/* Todayボタンホバー時 */
-.today-btn:hover {
-  background: rgba(74, 158, 255, 0.2);
-  border-color: #5aa9ff;
-  transform: scale(1.05);
-}
-
-/* Todayボタン押下時 */
-.today-btn:active {
-  transform: scale(0.95);
-}
-
-/* レスポンシブ対応 */
-@media (max-width: 768px) {
-  .date-controls {
-    gap: 4px;
-  }
-
-  .date-control-btn {
-    width: 24px;
-    height: 24px;
-    font-size: 10px;
-  }
-
-  .today-btn {
-    font-size: 12px;
-    padding: 4px 12px;
-  }
-}
 
 /* --- Time Control Panel (New) --- */
 .draggable-panel {
@@ -677,13 +591,25 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
-  color: #ddd;
-  padding: 6px 0;
+  color: #aaa;
+  padding: 8px 0;
   cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
 }
 
+/* ホバー時：少し明るく */
 .vcr-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* ★選択中（アクティブ）状態：青く光らせる */
+.vcr-btn.active {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-color: #60a5fa;
+  color: white;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
 }
 
 .unit-settings-wrapper {
@@ -818,4 +744,152 @@
   margin-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding-top: 8px;
+}
+
+/* ========================================
+   Localization (English Default)
+   ======================================== */
+/* Default State (English): Hide Japanese */
+.lang-ja {
+  display: none !important;
+}
+
+.lang-en {
+  display: inline !important;
+}
+
+/* Japanese Mode: Hide English, Show Japanese */
+body.locale-ja .lang-en {
+  display: none !important;
+}
+
+body.locale-ja .lang-ja {
+  display: inline !important;
+}
+
+/* Language Switcher (Flags) */
+.lang-switcher {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lang-btn {
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.3;
+  filter: grayscale(100%);
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.lang-btn:hover {
+  opacity: 0.8;
+  transform: scale(1.1);
+}
+
+.lang-btn.active {
+  opacity: 1;
+  filter: grayscale(0%);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* Time Control パネルヘッダーの整列 */
+#timePanelHeader .header-title {
+  display: flex;
+  align-items: center;
+}
+
+/* アイコン自体の詳細設定 */
+.panel-icon {
+  flex-shrink: 0;
+  /* Sphere10の青系発光色と同期 */
+  filter: drop-shadow(0 0 2px rgba(96, 165, 250, 0.5));
+}
+
+/* ドックボタン内のSVGアイコンスタイル */
+.dock-icon {
+  width: 20px;
+  height: 20px;
+  color: #fff;
+  transition: color 0.2s ease;
+}
+
+#bottomRightDock button:hover .dock-icon {
+  color: #60a5fa;
+  /* ホバー時にSphere10カラーに光る */
+}
+
+/* --- Time Control Split Inputs --- */
+.time-display-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.digital-group {
+  display: flex;
+  align-items: center;
+}
+
+.time-part {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: monospace;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+
+.time-part::-webkit-outer-spin-button,
+.time-part::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.time-part:focus {
+  outline: none;
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.time-part.year {
+  width: 56px;
+}
+
+.time-part.month,
+.time-part.day,
+.time-part.hour,
+.time-part.minute {
+  width: 32px;
+}
+
+.sep {
+  color: #888;
+  margin: 0 1px;
+  font-weight: bold;
+  user-select: none;
+}
+
+/* Location Search Width Fix */
+#locationSection #placeInput {
+  width: 100% !important;
+  box-sizing: border-box;
+  margin-bottom: 8px;
 }

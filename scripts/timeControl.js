@@ -1,40 +1,21 @@
 /**
- * Time Control Panel Logic
- * 
- * Handles local date/time manipulation and synchronizes with:
- * 1. The new "Modern" Time Panel UI
- * 2. The legacy `sphere10.js` core logic (via window.Sphere10 API)
- * 3. The legacy `chart.js` (via hidden datetime input events)
+ * scripts/timeControl.js
+ * Time Control Panel Logic (Split Inputs Version)
+ * Fixed: Removed all references to 'dateInput' to prevent TypeErrors.
  */
-
 (function () {
-    // DOM Elements
-    const panel = document.getElementById('timePanel');
-    const panelHeader = document.getElementById('timePanelHeader');
-    const closeBtn = document.getElementById('closeTimePanel');
-    const toggleBtn = document.getElementById('toggleTimePanel');
-    const dateInput = document.getElementById('modernDateInput');
-    const timeInput = document.getElementById('modernTimeInput');
-
-    const unitSettingsToggle = document.getElementById('toggleUnitSettings');
-    const unitPopup = document.getElementById('unitSelectorPopup');
-    const currentUnitDisplay = document.getElementById('currentUnitDisplay');
-    const unitOptions = document.querySelectorAll('.unit-option');
-
-    // Controls
-    const btnRewindFast = document.getElementById('tpRewindFast');
-    const btnRewind = document.getElementById('tpRewind');
-    const btnPlayPause = document.getElementById('tpPlayPause');
-    const btnForward = document.getElementById('tpForward');
-    const btnForwardFast = document.getElementById('tpForwardFast');
-    const btnToday = document.getElementById('tpToday');
+    // Variables
+    let panel, panelHeader, closeBtn, toggleBtn;
+    let valYear, valMonth, valDay, valHour, valMinute; // New Split Inputs
+    let unitSettingsToggle, unitPopup, currentUnitDisplay, unitOptions;
+    let btnRewindFast, btnRewind, btnPlayPause, btnForward, btnForwardFast, btnToday;
 
     // State
-    let currentUnit = 'minute'; // minute, hour, day, month, year
+    let currentUnit = 'minute';
     let isPlaying = false;
     let playInterval = null;
-    let playDirection = 0; // -2, -1, 0, 1, 2
-    const PLAY_SPEED_MS = 33; // ~30fps
+    let playDirection = 0;
+    const PLAY_SPEED_MS = 33;
     const MIN_YEAR = 1;
     const MAX_YEAR = 3000;
 
@@ -42,11 +23,46 @@
     // Initialization
     // ============================================================
     function init() {
+        // 1. Get Elements
+        panel = document.getElementById('timePanel');
+        
+        // Split Inputs (New IDs)
+        valYear = document.getElementById('valYear');
+        valMonth = document.getElementById('valMonth');
+        valDay = document.getElementById('valDay');
+        valHour = document.getElementById('valHour');
+        valMinute = document.getElementById('valMinute');
+
+        // Check if critical elements exist
+        if (!panel || !valYear) {
+            console.warn("Time Control elements missing. Retrying in 100ms...");
+            setTimeout(init, 100);
+            return;
+        }
+
+        // Get remaining elements
+        panelHeader = document.getElementById('timePanelHeader');
+        closeBtn = document.getElementById('closeTimePanel');
+        toggleBtn = document.getElementById('toggleTimePanel');
+        
+        unitSettingsToggle = document.getElementById('toggleUnitSettings');
+        unitPopup = document.getElementById('unitSelectorPopup');
+        currentUnitDisplay = document.getElementById('currentUnitDisplay');
+        unitOptions = document.querySelectorAll('.unit-option');
+
+        btnRewindFast = document.getElementById('tpRewindFast');
+        btnRewind = document.getElementById('tpRewind');
+        btnPlayPause = document.getElementById('tpPlayPause');
+        btnForward = document.getElementById('tpForward');
+        btnForwardFast = document.getElementById('tpForwardFast');
+        btnToday = document.getElementById('tpToday');
+
+        // 3. Setup
         setupDrag(panel, panelHeader);
         setupEventListeners();
-        setUnit(currentUnit); // Ensure UI matches default unit
+        setUnit(currentUnit);
 
-        // Initial sync from Sphere10 core
+        // 4. Initial Sync from Core
         if (window.Sphere10 && window.Sphere10.getDate) {
             updateDisplay(window.Sphere10.getDate());
         }
@@ -56,23 +72,18 @@
     // Event Listeners
     // ============================================================
     function setupEventListeners() {
-        // Panel Toggle
-        toggleBtn.addEventListener('click', () => {
-            panel.style.display = 'flex';
-        });
-        closeBtn.addEventListener('click', () => {
-            panel.style.display = 'none';
-            // stopPlayback(); // REMOVED: Keep playing in background
-        });
+        // Toggle Panel
+        toggleBtn?.addEventListener('click', () => { panel.style.display = 'flex'; });
+        closeBtn?.addEventListener('click', () => { panel.style.display = 'none'; });
 
         // Unit Selector
-        unitSettingsToggle.addEventListener('click', (e) => {
+        unitSettingsToggle?.addEventListener('click', (e) => {
             e.stopPropagation();
             unitPopup.classList.toggle('hidden');
         });
 
         document.addEventListener('click', (e) => {
-            if (!unitSettingsToggle.contains(e.target) && !unitPopup.contains(e.target)) {
+            if (unitSettingsToggle && unitPopup && !unitSettingsToggle.contains(e.target) && !unitPopup.contains(e.target)) {
                 unitPopup.classList.add('hidden');
             }
         });
@@ -84,50 +95,56 @@
             });
         });
 
-        // VCR Controls
-        btnRewindFast.addEventListener('click', () => togglePlay(-2));
-        btnRewind.addEventListener('click', () => step(-1));
-        btnPlayPause.addEventListener('click', () => togglePlay(1)); // Simple Play/Pause toggle
-        btnForward.addEventListener('click', () => step(1));
-        btnForwardFast.addEventListener('click', () => togglePlay(2));
-        btnToday.addEventListener('click', setToday);
+        // VCR Buttons
+        btnRewindFast?.addEventListener('click', () => togglePlay(-2));
+        btnRewind?.addEventListener('click', () => step(-1));
+        btnPlayPause?.addEventListener('click', () => togglePlay(1));
+        btnForward?.addEventListener('click', () => step(1));
+        btnForwardFast?.addEventListener('click', () => togglePlay(2));
+        btnToday?.addEventListener('click', setToday);
 
-        // Manual Input (Enter Key)
+        // Manual Input Handler (Enter Key on any split field)
         function handleManualInput(e) {
             if (e.key === 'Enter') {
-                const dStr = dateInput.value;
-                const tStr = timeInput.value;
-                // Combine and parse
-                // Expected format: YYYY/MM/DD and HH:mm
-                // Replace / with - for standard parsing if needed, but standard Date constructor might handle slash.
-                // Safest is to constructing ISO-like string or replacing / with - 
-                const isoDateStr = dStr.replace(/\//g, '-') + 'T' + tStr;
-                const newDate = new Date(isoDateStr);
+                const y = parseInt(valYear.value, 10);
+                const m = parseInt(valMonth.value, 10) - 1; // 0-based month
+                const d = parseInt(valDay.value, 10);
+                const h = parseInt(valHour.value, 10);
+                const min = parseInt(valMinute.value, 10);
 
+                const newDate = new Date(y, m, d, h, min);
                 if (!isNaN(newDate.getTime())) {
-                    validateAndClampDate(newDate); // Clamp year
+                    validateAndClampDate(newDate);
                     setDate(newDate);
                     e.target.blur(); // Remove focus
                 } else {
-                    // Invalid date, revert to current
+                    // Invalid date, revert display
                     updateDisplay(getCurrentDate());
                 }
             }
         }
 
-        dateInput.addEventListener('keydown', handleManualInput);
-        timeInput.addEventListener('keydown', handleManualInput);
+        // Attach listener to all split inputs
+        [valYear, valMonth, valDay, valHour, valMinute].forEach(input => {
+            if (input) input.addEventListener('keydown', handleManualInput);
+        });
     }
 
     // ============================================================
     // Logic
     // ============================================================
-
     function setUnit(unit) {
         currentUnit = unit;
-        currentUnitDisplay.textContent = unit.charAt(0).toUpperCase() + unit.slice(1);
-
-        // Update active class
+        const unitLabels = {
+            'minute': '<span class="lang-en">Minute</span><span class="lang-ja">分</span>',
+            'hour': '<span class="lang-en">Hour</span><span class="lang-ja">時</span>',
+            'day': '<span class="lang-en">Day</span><span class="lang-ja">日</span>',
+            'month': '<span class="lang-en">Month</span><span class="lang-ja">月</span>',
+            'year': '<span class="lang-en">Year</span><span class="lang-ja">年</span>'
+        };
+        if (currentUnitDisplay) {
+            currentUnitDisplay.innerHTML = unitLabels[unit] || unit;
+        }
         unitOptions.forEach(opt => {
             if (opt.dataset.unit === unit) opt.classList.add('selected');
             else opt.classList.remove('selected');
@@ -136,11 +153,8 @@
 
     function validateAndClampDate(date) {
         let year = date.getFullYear();
-        if (year < MIN_YEAR) {
-            date.setFullYear(MIN_YEAR);
-        } else if (year > MAX_YEAR) {
-            date.setFullYear(MAX_YEAR);
-        }
+        if (year < MIN_YEAR) date.setFullYear(MIN_YEAR);
+        else if (year > MAX_YEAR) date.setFullYear(MAX_YEAR);
         return date;
     }
 
@@ -152,48 +166,34 @@
     }
 
     function setDate(date) {
-        // 1. Update Core
+        // Update Core
         if (window.Sphere10 && window.Sphere10.setDate) {
             window.Sphere10.setDate(date);
         }
-
-        // 2. Update Local Display
         updateDisplay(date);
-
-        // 3. Sync Legacy Input (Important for Chart.js)
         syncToLegacyInput(date);
     }
 
+    // Update the 5 split inputs
     function updateDisplay(date) {
-        if (!date) return;
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        const h = String(date.getHours()).padStart(2, '0');
-        const min = String(date.getMinutes()).padStart(2, '0');
-
-        dateInput.value = `${y}/${m}/${d}`;
-        timeInput.value = `${h}:${min}`;
+        if (!date || !valYear) return;
+        valYear.value = date.getFullYear();
+        valMonth.value = String(date.getMonth() + 1).padStart(2, '0');
+        valDay.value = String(date.getDate()).padStart(2, '0');
+        valHour.value = String(date.getHours()).padStart(2, '0');
+        valMinute.value = String(date.getMinutes()).padStart(2, '0');
     }
 
-    /**
-     * Syncs the current date to the hidden legacy input.
-     * STRICT IMPLEMENTATION: No toISOString() allowed.
-     */
+    // Keep compatibility with hidden input for chart.js
     function syncToLegacyInput(date) {
         const legacyInput = document.getElementById('datetimeInput');
         if (legacyInput) {
-            // Create local ISO-like string manually
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const d = String(date.getDate()).padStart(2, '0');
             const h = String(date.getHours()).padStart(2, '0');
             const min = String(date.getMinutes()).padStart(2, '0');
-
-            const localString = `${y}-${m}-${d}T${h}:${min}`;
-
-            legacyInput.value = localString;
-            // Dispatch events for chart.js
+            legacyInput.value = `${y}-${m}-${d}T${h}:${min}`;
             legacyInput.dispatchEvent(new Event('change'));
             legacyInput.dispatchEvent(new Event('input'));
         }
@@ -201,13 +201,11 @@
 
     function setToday() {
         stopPlayback();
-        const now = new Date();
-        setDate(now);
+        setDate(new Date());
     }
 
-    function step(direction) { // direction: 1 or -1
+    function step(direction) {
         const date = getCurrentDate();
-
         switch (currentUnit) {
             case 'minute': date.setMinutes(date.getMinutes() + direction); break;
             case 'hour': date.setHours(date.getHours() + direction); break;
@@ -215,39 +213,33 @@
             case 'month': date.setMonth(date.getMonth() + direction); break;
             case 'year': date.setFullYear(date.getFullYear() + direction); break;
         }
-
         validateAndClampDate(date);
         setDate(date);
     }
 
-    // Playback Logic
+    function updateVCRUI() {
+        [btnRewindFast, btnRewind, btnPlayPause, btnForward, btnForwardFast, btnToday].forEach(btn => {
+            if (btn) btn.classList.remove('active');
+        });
+        if (!isPlaying) return;
+        if (playDirection === 1) btnPlayPause.classList.add('active');
+        else if (playDirection === 2) btnForwardFast.classList.add('active');
+        else if (playDirection === -2) btnRewindFast.classList.add('active');
+    }
+
     function togglePlay(speed) {
-        // If clicking same speed, toggle pause
         if (isPlaying && playDirection === speed) {
             stopPlayback();
             return;
         }
-
-        // Changing speed or starting
-        stopPlayback(); // clear previous interval
+        stopPlayback();
         isPlaying = true;
         playDirection = speed;
-
-        // Update UI state if needed (e.g. highlight active button)
-
+        updateVCRUI();
         playInterval = setInterval(() => {
-            // For fast forward/rewind, we might want bigger steps or just faster interval
-            // Here we stick to 1 unit step but could be multiplied
-            let magnitude = 1;
-            if (Math.abs(speed) === 2) magnitude = 5; // Fast speed multiplier
-
+            let magnitude = (Math.abs(speed) === 2) ? 5 : 1;
             const dir = speed > 0 ? 1 : -1;
-
-            // Optimize: Do not call full render on every frame if possible?
-            // For now, we just call step repeatedly
-            for (let i = 0; i < magnitude; i++) {
-                step(dir);
-            }
+            for (let i = 0; i < magnitude; i++) step(dir);
         }, PLAY_SPEED_MS);
     }
 
@@ -256,11 +248,9 @@
         playDirection = 0;
         if (playInterval) clearInterval(playInterval);
         playInterval = null;
+        updateVCRUI();
     }
 
-    // ============================================================
-    // Draggable Logic
-    // ============================================================
     function setupDrag(element, handle) {
         let isDragging = false;
         let startX, startY, initialLeft, initialBottom;
@@ -268,13 +258,17 @@
         handle.addEventListener('mousedown', dragStart);
         document.addEventListener('mousemove', drag);
         document.addEventListener('mouseup', dragEnd);
-
-        // Touch support
         handle.addEventListener('touchstart', dragStart, { passive: false });
         document.addEventListener('touchmove', drag, { passive: false });
         document.addEventListener('touchend', dragEnd);
 
         function dragStart(e) {
+            // Fix: Ignore interactions on inputs/buttons
+            if (e.target.closest('button') || e.target.closest('input') || 
+                e.target.closest('.close-btn') || e.target.closest('.icon-btn')) {
+                return;
+            }
+
             if (e.type === 'touchstart') {
                 startX = e.touches[0].clientX;
                 startY = e.touches[0].clientY;
@@ -283,62 +277,35 @@
                 startY = e.clientY;
             }
 
-            const rect = element.getBoundingClientRect();
-            // Store current visual position
-            // Note: We use bottom/left in CSS, but getBoundingClientRect returns top/left relative to viewport
-            // To maintain "bottom" positioning, we should calculate it.
-
             const computedStyle = window.getComputedStyle(element);
-            initialLeft = parseInt(computedStyle.left);
-            initialBottom = parseInt(computedStyle.bottom);
-
-            // If left is explicitly auto or not set, we might need fallback, 
-            // but our CSS sets left: 50% and transform: translateX(-50%).
-            // It's easier to switch to pure left/top or left/bottom positioning for dragging.
-            // Let's stick to modifying left/bottom variables.
-
+            initialLeft = parseInt(computedStyle.left) || 0;
+            initialBottom = parseInt(computedStyle.bottom) || 0;
             isDragging = true;
-            element.style.transition = 'none'; // Disable transition during drag
-
-            // Prevent text selection
+            element.style.transition = 'none';
             e.preventDefault();
         }
 
         function drag(e) {
             if (!isDragging) return;
             e.preventDefault();
-
-            let clientX, clientY;
-            if (e.type === 'touchmove') {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            }
-
+            let clientX = (e.type === 'touchmove') ? e.touches[0].clientX : e.clientX;
+            let clientY = (e.type === 'touchmove') ? e.touches[0].clientY : e.clientY;
             const deltaX = clientX - startX;
-            const deltaY = clientY - startY; // positive = down
-
-            // Update position
-            // Moving mouse down (positive deltaY) means bottom value decreases
+            const deltaY = clientY - startY;
             element.style.bottom = `${initialBottom - deltaY}px`;
-
-            // Moving mouse right (positive deltaX) means left value increases
             element.style.left = `${initialLeft + deltaX}px`;
         }
 
         function dragEnd() {
             isDragging = false;
-            element.style.transition = ''; // Restore transition
+            element.style.transition = '';
         }
     }
 
-    // Start initialization when DOM is ready
+    // Initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-
 })();

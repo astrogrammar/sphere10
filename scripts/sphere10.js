@@ -529,6 +529,53 @@ function initApp() {
   // ★★★ 設定読み込みとUI同期 ★★★
   loadSettings(); // 保存された設定を読み込み
 
+  // ★★★ 言語設定 (Locale Handling) ★★★
+  function initLocale() {
+    // デフォルトは 'en' (英語)
+    // store key: 'sphere10_locale'
+    const savedLocale = typeof store !== 'undefined' ? store.get('sphere10_locale', 'en') : 'en';
+    const btnEn = document.getElementById('langBtnEn');
+    const btnJa = document.getElementById('langBtnJa');
+
+    // UI状態の更新関数
+    function applyLocale(locale) {
+      if (locale === 'ja') {
+        document.body.classList.add('locale-ja');
+        if (btnJa) btnJa.classList.add('active');
+        if (btnEn) btnEn.classList.remove('active');
+      } else {
+        document.body.classList.remove('locale-ja'); // 英語はデフォルトなのでクラス削除
+        if (btnEn) btnEn.classList.add('active');
+        if (btnJa) btnJa.classList.remove('active');
+      }
+    }
+
+    // 初期適用
+    applyLocale(savedLocale);
+
+    // イベントリスナー設定
+    if (btnEn) {
+      btnEn.addEventListener('click', (e) => {
+        e.stopPropagation(); // パネルドラッグ防止
+        e.preventDefault();  // フォーカス移動防止
+        applyLocale('en');
+        if (typeof store !== 'undefined') store.set('sphere10_locale', 'en');
+      });
+    }
+
+    if (btnJa) {
+      btnJa.addEventListener('click', (e) => {
+        e.stopPropagation(); // パネルドラッグ防止
+        e.preventDefault();  // フォーカス移動防止
+        applyLocale('ja');
+        if (typeof store !== 'undefined') store.set('sphere10_locale', 'ja');
+      });
+    }
+  }
+
+  // 初期化実行
+  initLocale();
+
   const altGridStoreSentinel = typeof Symbol === 'function' ? Symbol('altGridMissing') : '__sphere10_alt_missing__';
   let storedAltGrid = altGridStoreSentinel;
   if (typeof store !== 'undefined' && store && typeof store.get === 'function') {
