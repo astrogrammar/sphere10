@@ -234,6 +234,46 @@
   user-select: none;
 }
 
+/* ★★★ Slider Label Layout Update (Stacked & Full Width) ★★★ */
+.controls label:has(input[type="range"]) {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 20px 16px 20px;
+}
+
+/* Force slider to next line and full width */
+.controls label:has(input[type="range"]) input[type="range"] {
+  flex-basis: 100%;
+  width: 100%;
+  margin-top: 8px;
+  order: 3;
+}
+
+.controls label:has(input[type="range"]) span:last-child {
+  /* Reset previous styles */
+  align-self: auto;
+  margin: 0;
+}
+
+/* Stealth Input Style for Value Display */
+.controls span[id$="Val"] {
+  cursor: text;
+  min-width: 36px;
+  text-align: right;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Edit mode feedback */
+.controls span[id$="Val"]:focus {
+  outline: none;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
 /* カスタムチェックボックス - 光る効果付き */
 .controls input[type="checkbox"] {
   appearance: none;
@@ -292,6 +332,71 @@
   }
 }
 
+/* ========================================
+   House System ラジオボタンの歪み修正とモダン化
+   ======================================== */
+
+.controls input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  /* 歪み防止: サイズを固定し、親のflexに影響されないようにする */
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px;
+  min-height: 18px;
+  flex-shrink: 0;
+
+  /* 既存の入力スタイル（paddingや背景色）をリセット */
+  padding: 0 !important;
+  margin: 0 12px 0 0 !important;
+  background: transparent !important;
+  border: 2px solid rgba(148, 163, 184, 0.5);
+  border-radius: 50%;
+
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+/* 選択時の状態 */
+.controls input[type="radio"]:checked {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  border-color: #059669 !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5),
+    0 0 6px rgba(16, 185, 129, 0.3);
+  animation: checkboxGlow 2s ease-in-out infinite alternate;
+}
+
+/* 中央の白いドットの配置を厳密に中央固定 */
+.controls input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+  display: block;
+  /* 確実に表示 */
+}
+
+/* 親ラベルの調整：ラジオボタンとテキストを綺麗に並べる */
+.controls label {
+  display: flex !important;
+  align-items: center !important;
+  width: 100%;
+  padding: 6px 20px;
+  /* パネル内側の余白 */
+  margin: 0 !important;
+  /* ラベル自身のマージンをリセット */
+  cursor: pointer;
+}
+
 /* スライダー */
 .controls input[type="range"] {
   width: 100%;
@@ -301,7 +406,7 @@
   outline: none;
   appearance: none;
   -webkit-appearance: none;
-  margin: 8px 0 4px 0;
+  margin: 8px 0;
 }
 
 .controls input[type="range"]::-webkit-slider-thumb {
@@ -360,6 +465,7 @@
 /* 数値入力の特別なスタイリング */
 .controls input[type="number"] {
   /* Chrome, Safari, Edge の矢印ボタンを非表示 */
+  appearance: textfield;
   -webkit-appearance: textfield;
   -moz-appearance: textfield;
 }
@@ -368,11 +474,6 @@
 .controls input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
-}
-
-/* Firefox の矢印ボタンを非表示 */
-.controls input[type="number"] {
-  -moz-appearance: textfield;
 }
 
 /* 緯度入力のラベル特別スタイル */
@@ -853,6 +954,7 @@ body.locale-ja .lang-ja {
   font-weight: bold;
   text-align: center;
   padding: 0;
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 
@@ -871,6 +973,92 @@ body.locale-ja .lang-ja {
 
 .time-part.year {
   width: 56px;
+}
+
+/* --- Secret Astrometry HUD --- */
+.hud-container {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(8, 8, 12, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 9999;
+  font-family: 'Courier New', monospace;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+  color: #00ffcc;
+  min-width: 640px;
+  font-size: 13px;
+  transition: opacity 0.2s ease;
+  pointer-events: auto;
+  /* マウス操作を透過させる -> 有効化 */
+}
+
+.hud-container.hidden {
+  display: none !important;
+}
+
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  cursor: move;
+}
+
+.hud-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.hud-table th {
+  text-align: center;
+  padding: 4px 8px;
+  color: #00aaaa;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hud-table .col-body {
+  text-align: left;
+  color: #fff;
+}
+
+.hud-table .sub-header th {
+  color: #666;
+  font-weight: normal;
+}
+
+.hud-table td {
+  text-align: right;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.hud-table td:first-child {
+  text-align: left;
+  font-weight: bold;
+  color: #e0e0e0;
+}
+
+/* 列ごとの色分け */
+.val-ecl {
+  color: #ffcc99;
+}
+
+.val-eq {
+  color: #99ccff;
+}
+
+.val-hor {
+  color: #99ff99;
 }
 
 .time-part.month,
@@ -892,4 +1080,32 @@ body.locale-ja .lang-ja {
   width: 100% !important;
   box-sizing: border-box;
   margin-bottom: 8px;
+}
+
+/* ========================================
+   UI微調整: 配置の統一と不要要素の削除 (Fix)
+   ======================================== */
+
+/* 1. ラベルの配置統一 */
+.controls label {
+  display: flex !important;
+  align-items: center !important;
+  width: 100%;
+  /* 左端に20pxのパディングを設定し、ヘッダーと揃える */
+  padding: 6px 20px !important;
+  margin: 0 !important;
+  cursor: pointer;
+  box-sizing: border-box;
+  /* パディングを含めて幅を計算 */
+}
+
+/* ハウスシステム等のコンテナが余分なパディングを持っている場合のリセット */
+.section-content>div {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* 2. Orientation > Roll (東西回転) スライダーを非表示 */
+#EastWest {
+  display: none !important;
 }

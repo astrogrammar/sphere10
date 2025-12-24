@@ -1,7 +1,5 @@
-// 2512151255
+// 251224-1137
 // Sphere10 ver.3.0 - 天球シミュレーター
-// 古典占星術向けの3D天球表示アプリケーション
-
 // ========================================
 // 定数定義
 // ========================================
@@ -207,6 +205,9 @@ function initApp() {
     }
   });
 
+  // ★★★ ハウスシステム設定 (Phase 3) ★★★
+  let houseSystem = 'none';
+
   // ★★★ 設定値記憶機能 ★★★
   function saveSettings() {
     try {
@@ -234,7 +235,8 @@ function initApp() {
         showAltGrid: showAltGrid,
         showZenithNadir: showZenithNadir,
         isSidereal: isSidereal,
-        lunarOrbitVisible: lunarOrbitVisible
+        lunarOrbitVisible: lunarOrbitVisible,
+        houseSystem: houseSystem // Store House System
       };
       if (typeof store !== 'undefined') {
         store.set('sphere10_settings', JSON.stringify(settings));
@@ -274,6 +276,8 @@ function initApp() {
         showAltGrid = settings.showAltGrid ?? showAltGrid;
         isSidereal = settings.isSidereal ?? false;
         lunarOrbitVisible = settings.lunarOrbitVisible ?? false;
+        houseSystem = settings.houseSystem ?? 'none'; // Load House System
+
         const storedZenithNadir = normalizeStoredBoolean(settings.showZenithNadir);
         if (typeof storedZenithNadir === 'boolean') {
           showZenithNadir = storedZenithNadir;
@@ -506,6 +510,20 @@ function initApp() {
   ra12LinesToggle.addEventListener('change', () => { ra12LinesVisible = ra12LinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
   declinationLinesToggle.addEventListener('change', () => { declinationLinesVisible = declinationLinesToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
+  // ★★★ ハウスシステム設定 (UI Event Listeners) ★★★
+  const houseRadios = document.querySelectorAll('input[name="houseSystem"]');
+  // 初期状態の適用
+  houseRadios.forEach(radio => {
+    if (radio.value === houseSystem) radio.checked = true;
+    radio.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        houseSystem = e.target.value;
+        saveSettings();
+        requestRender();
+      }
+    });
+  });
+
   // ★★★ 方角表示設定 ★★★
   const directionToggle = document.getElementById('directionToggle');
   const directionTextSizeSlider = document.getElementById('directionTextSize');
@@ -528,6 +546,12 @@ function initApp() {
 
   // ★★★ 設定読み込みとUI同期 ★★★
   loadSettings(); // 保存された設定を読み込み
+
+  // ★ ADDED: 保存された設定に合わせてラジオボタンの表示を更新
+  const houseRadiosSync = document.querySelectorAll('input[name="houseSystem"]');
+  houseRadiosSync.forEach(radio => {
+    if (radio.value === houseSystem) radio.checked = true;
+  });
 
   // ★★★ 言語設定 (Locale Handling) ★★★
   function initLocale() {
@@ -2209,8 +2233,28 @@ function initApp() {
     }
   };
 
-  // ★ ADDED: requestRenderをwindowオブジェクトに公開（chart.jsからアクセスするため）
+  // ★ ADDED: requestRenderをwindowオブジェクトに公開
   window.requestRender = requestRender;
+
+  // ★ ADDED: 外部描画フック用のRenderState取得関数 (Closure Scope)
+  // initApp内のローカル変数/関数(ctx, toHorizontal等)にアクセスするためここで定義
+  window.Sphere10 = window.Sphere10 || {};
+  window.Sphere10.getRenderState = function () {
+    return {
+      ctx: ctx,
+      angle: celestialAngle,
+      latitude: latitude,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      rotationZ: rotationZ,
+      rotationY: rotationY,
+      rotationEW: rotationEW,
+      toHorizontal: toHorizontal,
+      project: project,
+      applyAllRotations: applyAllRotations,
+      houseSystem: houseSystem // Expose to external modules
+    };
+  };
 
   // ★ MODIFIED (Phase 1): Renamed from animate() to renderFrame()
   function renderFrame() {
@@ -2279,6 +2323,26 @@ function initApp() {
     drawDeclinationLines();
     drawCardinalDirections();
     drawZenithNadir();
+
+    // 太陽系天体の描画（常に更新が必要）
+
+    // --- External Modules Draw Hooks (e.g. House System) ---
+    if (window.Sphere10 && window.Sphere10.drawHooks && window.Sphere10.drawHooks.length > 0) {
+      // Run hooks if getRenderState is available (it's defined in initApp scope)
+      if (typeof window.Sphere10.getRenderState === 'function') {
+        const state = window.Sphere10.getRenderState();
+        // Ensure essential transformation functions are available
+        if (state.toHorizontal && state.project) {
+          window.Sphere10.drawHooks.forEach(hook => {
+            try {
+              hook(state.ctx, state);
+            } catch (e) {
+              console.warn('Draw hook error:', e);
+            }
+          });
+        }
+      }
+    }
 
     // 太陽系天体の描画（常に更新が必要）
     drawSun();
@@ -2498,14 +2562,21 @@ window.Sphere10 = window.Sphere10 || {};
 window.Sphere10.setDate = function (date) {
   if (date instanceof Date && !isNaN(date)) {
     // sphere10.js のグローバル変数 currentDate を更新
-    // 注意: currentDate がこのファイルのトップレベルで定義されていることを前提としています
     if (typeof currentDate !== 'undefined') {
       currentDate = date;
     }
 
     // 天体位置計算と描画リクエスト
-    if (typeof updateCelestialPositions === 'function') updateCelestialPositions();
-    if (typeof requestRender === 'function') requestRender();
+    // [Fix] updateCelestialPositions -> updateAllPositions に修正
+    if (typeof updateAllPositions === 'function') {
+      updateAllPositions();
+    } else {
+      console.warn('Sphere10: updateAllPositions is not defined');
+    }
+
+    if (typeof requestRender === 'function') {
+      requestRender();
+    }
   }
 };
 
@@ -2515,4 +2586,14 @@ window.Sphere10.getDate = function () {
     return currentDate;
   }
   return new Date();
+};
+
+// 外部モジュール向けのフック登録オブジェクト
+window.Sphere10.drawHooks = [];
+
+// 外部から描画関数を登録するメソッド
+window.Sphere10.addDrawHook = function (hookFunc) {
+  if (typeof hookFunc === 'function') {
+    window.Sphere10.drawHooks.push(hookFunc);
+  }
 };

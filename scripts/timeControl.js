@@ -25,7 +25,7 @@
     function init() {
         // 1. Get Elements
         panel = document.getElementById('timePanel');
-        
+
         // Split Inputs (New IDs)
         valYear = document.getElementById('valYear');
         valMonth = document.getElementById('valMonth');
@@ -44,7 +44,7 @@
         panelHeader = document.getElementById('timePanelHeader');
         closeBtn = document.getElementById('closeTimePanel');
         toggleBtn = document.getElementById('toggleTimePanel');
-        
+
         unitSettingsToggle = document.getElementById('toggleUnitSettings');
         unitPopup = document.getElementById('unitSelectorPopup');
         currentUnitDisplay = document.getElementById('currentUnitDisplay');
@@ -112,7 +112,10 @@
                 const h = parseInt(valHour.value, 10);
                 const min = parseInt(valMinute.value, 10);
 
-                const newDate = new Date(y, m, d, h, min);
+                // Fix: Use setFullYear to preserve years 0-99 (avoid 1900 offset)
+                const newDate = new Date();
+                newDate.setFullYear(y, m, d);
+                newDate.setHours(h, min, 0, 0);
                 if (!isNaN(newDate.getTime())) {
                     validateAndClampDate(newDate);
                     setDate(newDate);
@@ -264,7 +267,7 @@
 
         function dragStart(e) {
             // Fix: Ignore interactions on inputs/buttons
-            if (e.target.closest('button') || e.target.closest('input') || 
+            if (e.target.closest('button') || e.target.closest('input') ||
                 e.target.closest('.close-btn') || e.target.closest('.icon-btn')) {
                 return;
             }

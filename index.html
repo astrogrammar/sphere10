@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="favicon_io/favicon.ico">
-  <link rel="stylesheet" href="./css/ui.css?2512">
+  <link rel="stylesheet" href="./css/ui.css">
   <link rel="stylesheet" href="./css/chart.css">
-  <title>Sphere10 立体天球ホロスコープ v3.0</title>
-  <!-- The Real Astrology Web App Made in Japan enhanced by US AI technology -->
+  <title>Sphere10 Celestial Astrolabe v3.0</title>
+  <!-- Sphere10 Celestial Astrolabe is an interactive digital instrument that preserves the geometry of the celestial sphere and allows astronomical and astrological questions to be explored through time, location, and perspective.
+   -->
   <style>
     /* 基本的なページレイアウト（天体表示部分のみ） */
     a:link,
@@ -65,22 +67,22 @@
       <!-- 回転セクション -->
       <div class="section">
         <h3 class="section-header" data-section="rotation">
-          <span><span class="lang-en">ROTATION</span><span class="lang-ja">回転</span></span>
+          <span><span class="lang-en">ORIENTATION</span><span class="lang-ja">回転</span></span>
           <span class="toggle-icon">▼</span>
         </h3>
         <div class="section-content" id="rotation-content">
           <!-- スライダーは残しつつ、マウスドラッグで操作可能にします -->
-          <label><span class="lang-en">Horizontal</span><span class="lang-ja">水平</span>
+          <label><span class="lang-en">Azimuth</span><span class="lang-ja">水平</span>
             <input type="range" id="rotationZSlider" min="-180" max="180" value="0">
-            <span id="rotationZVal">0°</span>
+            <span id="rotationZVal" contenteditable="true" spellcheck="false">0°</span>
           </label>
-          <label><span class="lang-en">North/South</span><span class="lang-ja">南北</span>
+          <label><span class="lang-en">Altitude</span><span class="lang-ja">南北</span>
             <input type="range" id="rotationYSlider" min="-90" max="90" value="0">
-            <span id="rotationYVal">0°</span>
+            <span id="rotationYVal" contenteditable="true" spellcheck="false">0°</span>
           </label>
-          <label id="EastWest"><span class="lang-en">East/West</span><span class="lang-ja">東西</span>
+          <label id="EastWest"><span class="lang-en">Roll</span><span class="lang-ja">東西</span>
             <input type="range" id="rotationEWSlider" min="-90" max="90" value="0">
-            <span id="rotationEWVal">0°</span>
+            <span id="rotationEWVal" contenteditable="true" spellcheck="false">0°</span>
           </label>
         </div>
       </div>
@@ -88,7 +90,7 @@
       <!-- 指標セクション -->
       <div class="section">
         <h3 class="section-header" data-section="indicator">
-          <span><span class="lang-en">INDICATOR</span><span class="lang-ja">指標</span></span>
+          <span><span class="lang-en">REFERENCE LINES</span><span class="lang-ja">指標</span></span>
           <span class="toggle-icon">▼</span>
         </h3>
         <div class="section-content" id="indicator-content">
@@ -115,7 +117,7 @@
           </label>
           <label>
             <input type="checkbox" id="eclipticBandToggle" checked>
-            <span class="lang-en">Zodiac</span><span class="lang-ja">獣帯</span>
+            <span class="lang-en">Zodiacal Band</span><span class="lang-ja">獣帯</span>
           </label>
           <label>
             <input type="checkbox" id="lunarOrbitToggle">
@@ -123,15 +125,15 @@
           </label>
           <label>
             <input type="checkbox" id="ra12LinesToggle">
-            <span class="lang-en">RA</span><span class="lang-ja">赤経</span>
+            <span class="lang-en">R.A.</span><span class="lang-ja">赤経</span>
           </label>
           <label>
             <input type="checkbox" id="declinationLinesToggle">
-            <span class="lang-en">DEC</span><span class="lang-ja">赤緯</span>
+            <span class="lang-en">Decl.</span><span class="lang-ja">赤緯</span>
           </label>
           <label>
             <input type="checkbox" id="altGridToggle">
-            <span class="lang-en">Altitude</span><span class="lang-ja">高度</span>
+            <span class="lang-en">Alt. Grid</span><span class="lang-ja">高度</span>
           </label>
           <label>
             <input type="checkbox" id="zenithNadirToggle" aria-label="Toggle Zenith/Nadir markers">
@@ -141,10 +143,42 @@
         </div>
       </div>
 
+      <!-- ハウスシステムセクション -->
+      <div class="section">
+        <h3 class="section-header" data-section="houses">
+          <span><span class="lang-en">HOUSE SYSTEM</span><span class="lang-ja">ハウス</span></span>
+          <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="section-content" id="houses-content">
+          <div style="padding: 0 20px 12px 20px; display: flex; flex-direction: column; gap: 8px;">
+            <label style="margin: 0; display: flex; align-items: center;">
+              <input type="radio" name="houseSystem" value="none" checked style="width: auto; margin-right: 8px;">
+              <span class="lang-en">None</span><span class="lang-ja">表示なし</span>
+            </label>
+            <label style="margin: 0; display: flex; align-items: center;">
+              <input type="radio" name="houseSystem" value="whole-sign" style="width: auto; margin-right: 8px;">
+              <span class="lang-en">Whole Sign</span><span class="lang-ja">ホールサイン</span>
+            </label>
+            <label style="margin: 0; display: flex; align-items: center;">
+              <input type="radio" name="houseSystem" value="regiomontanus" style="width: auto; margin-right: 8px;">
+              <span class="lang-en">Regiomontanus</span><span class="lang-ja">レジオモンタナス</span>
+            </label>
+            <label style="margin: 0; display: flex; align-items: center;">
+              <input type="radio" name="houseSystem" value="campanus" style="width: auto; margin-right: 8px;">
+              <span class="lang-en">Campanus</span><span class="lang-ja">カンパヌス</span>
+            </label>
+            <label style="margin: 0; display: flex; align-items: center;">
+              <input type="radio" name="houseSystem" value="equal" style="width: auto; margin-right: 8px;">
+              <span class="lang-en">Equal (AC)</span><span class="lang-ja">等分ハウス (AC基準)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
       <!-- 補助セクション -->
       <div class="section">
         <h3 class="section-header" data-section="option">
-          <span><span class="lang-en">OPTION</span><span class="lang-ja">補助</span></span>
+          <span><span class="lang-en">DISPLAY SETTINGS</span><span class="lang-ja">補助</span></span>
           <span class="toggle-icon">▼</span>
         </h3>
         <div class="section-content" id="option-content">
@@ -160,7 +194,7 @@
           </label>
           <label>
             <input type="checkbox" id="backToggle">
-            <span class="lang-en">Transparent</span><span class="lang-ja">透明</span>
+            <span class="lang-en">Sky Transparency</span><span class="lang-ja">透明</span>
           </label>
           <!-- ★★★ 惑星ラベルのトグルを追加 ★★★ -->
           <label>
@@ -170,7 +204,7 @@
           <!-- ★★★ 新規追加: 東西反転トグル ★★★ -->
           <label>
             <input type="checkbox" id="reverseEWToggle">
-            <span class="lang-en">Flip ◀|▶</span><span class="lang-ja">反転 ◀|▶</span>
+            <span class="lang-en">Invert E-W (Mirror)</span><span class="lang-ja">反転 ◀|▶</span>
           </label>
           <!-- ★★★ 方角表示設定 ★★★ -->
           <label>
@@ -340,11 +374,39 @@
   <script src="./scripts/precession.js"></script>
   <script src="./scripts/utilities.js"></script>
   <script src="./scripts/sphere10.js"></script>
+  <script src="./scripts/house.js"></script>
   <script src="./scripts/starNames.js"></script>
   <script src="./scripts/lunarOrbit.js"></script>
   <script src="./scripts/chart.js"></script>
   <script src="./scripts/timeControl.js"></script>
   <div></div>
+  <div id="secretHUD" class="hud-container hidden">
+    <div class="hud-header">
+      <span class="hud-title">ASTROMETRY DATA [LIVE]</span>
+      <span class="hud-info">LAT: <span id="hudLat">--</span> LON: <span id="hudLon">--</span></span>
+    </div>
+    <table class="hud-table">
+      <thead>
+        <tr>
+          <th class="col-body">BODY</th>
+          <th class="col-ecl" colspan="2">ECLIPTIC (黄道)</th>
+          <th class="col-eq" colspan="2">EQUATORIAL (赤道)</th>
+          <th class="col-hor" colspan="2">HORIZONTAL (地平)</th>
+        </tr>
+        <tr class="sub-header">
+          <th></th>
+          <th>λ (Lon)</th>
+          <th>β (Lat)</th>
+          <th>α (R.A.)</th>
+          <th>δ (Decl)</th>
+          <th>Alt</th>
+          <th>Az</th>
+        </tr>
+      </thead>
+      <tbody id="hudBody">
+      </tbody>
+    </table>
+  </div>
   <footer>astrogrammar.com</footer>
 </body>
 
