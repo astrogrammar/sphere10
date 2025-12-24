@@ -171,6 +171,10 @@
               <input type="radio" name="houseSystem" value="equal" style="width: auto; margin-right: 8px;">
               <span class="lang-en">Equal (AC)</span><span class="lang-ja">等分ハウス (AC基準)</span>
             </label>
+            <label style="margin: 0; display: flex; align-items: center;">
+              <input type="radio" name="houseSystem" value="placidus" style="width: auto; margin-right: 8px;">
+              <span class="lang-en">Placidus</span><span class="lang-ja">プラシダス (時間分割)</span>
+            </label>            
           </div>
         </div>
       </div>
@@ -231,9 +235,6 @@
         </h3>
         <div class="section-content" id="location-content">
           <div id="locationSection">
-            <!-- CRITICAL: Legacy Input hidden here for chart.js compatibility -->
-            <input type="datetime-local" id="datetimeInput" style="display:none !important;">
-
             <!-- 地名検索 -->
             <label for="placeInput" style="display:none">Place</label>
             <input type="text" id="placeInput" placeholder="Place Search (e.g., Tokyo)">

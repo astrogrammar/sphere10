@@ -429,7 +429,7 @@ function initApp() {
   const fastForwardButton = document.getElementById('fastForwardButton');
   const reverseButton = document.getElementById('reverseButton');
 
-  const datetimeInput = document.getElementById('datetimeInput');
+
   const locationInput = document.getElementById('locationInput');
   const setLocationButton = document.getElementById('setLocationButton');
 
@@ -637,19 +637,7 @@ function initApp() {
   if (directionToggle) directionToggle.checked = directionVisible;
 
   // ★★★ 日時変更ハンドラー（changeとinputの両方を監視） ★★★
-  if (datetimeInput) {
-    const handleDateTimeChange = () => {
-      const userDate = new Date(datetimeInput.value);
-      if (!isNaN(userDate)) {
-        currentDate = userDate;
-        updateAllPositions();
-        requestRender();
-      }
-    };
 
-    datetimeInput.addEventListener('change', handleDateTimeChange);
-    datetimeInput.addEventListener('input', handleDateTimeChange);
-  }
 
   // ★★★ Nominatim API統合と地名検索機能 ★★★
   const placeInput = document.getElementById("placeInput");
@@ -1229,6 +1217,9 @@ function initApp() {
     // ========================================
     // ★★★ END LST CALCULATION ★★★
     // ========================================
+
+    // [New] 計算完了を外部モジュールに通知 (Event-Driven)
+    window.dispatchEvent(new CustomEvent('sphere10:update'));
 
     requestRender();
   }
@@ -2384,170 +2375,7 @@ function initApp() {
   }, 250);
 
 
-  // ★★★ 日付送り機能 ★★★
-  let dateControlInterval = null;  // setIntervalのID
-  let dateControlMode = 'pause';   // 'pause', 'rewind-fast', 'forward-fast'
-
-  // 日付を1日進める/戻す
-  function changeDateByDays(days) {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + days);
-    currentDate = newDate;
-
-    // 日付入力フィールドを更新
-    const datetimeInput = document.getElementById('datetimeInput');
-    if (datetimeInput) {
-      const yyyy = newDate.getFullYear();
-      const mm = String(newDate.getMonth() + 1).padStart(2, '0');
-      const dd = String(newDate.getDate()).padStart(2, '0');
-      const hh = String(newDate.getHours()).padStart(2, '0');
-      const min = String(newDate.getMinutes()).padStart(2, '0');
-      datetimeInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-
-      // ★ changeイベントを発火してchart.jsに通知
-      // chart.jsがchartCanvasの表示状態を確認して更新する
-      datetimeInput.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    // 天球を更新
-    updateAllPositions();
-    requestRender();
-  }
-
-  // 自動送りを開始
-  function startDateControl(mode) {
-    stopDateControl();  // 既存の自動送りを停止
-
-    dateControlMode = mode;
-    const days = (mode === 'rewind-fast') ? -1 : 1;
-
-    dateControlInterval = setInterval(() => {
-      changeDateByDays(days);
-    }, 500);  // 0.5秒ごとに実行
-
-    updateDateControlButtons();
-  }
-
-  // 自動送りを停止
-  function stopDateControl() {
-    if (dateControlInterval !== null) {
-      clearInterval(dateControlInterval);
-      dateControlInterval = null;
-    }
-    dateControlMode = 'pause';
-    updateDateControlButtons();
-  }
-
-  // ボタンの選択状態を更新
-  function updateDateControlButtons() {
-    const buttons = {
-      'rewindFastBtn': 'rewind-fast',
-      'pauseDateBtn': 'pause',
-      'forwardFastBtn': 'forward-fast'
-    };
-
-    for (const [btnId, mode] of Object.entries(buttons)) {
-      const btn = document.getElementById(btnId);
-      if (btn) {
-        if (dateControlMode === mode) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
-        }
-      }
-    }
-  }
-
-  // 今日に戻す
-  function resetToToday() {
-    stopDateControl();
-    currentDate = new Date();
-
-    // 日付入力フィールドを更新
-    const datetimeInput = document.getElementById('datetimeInput');
-    if (datetimeInput) {
-      const yyyy = currentDate.getFullYear();
-      const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
-      const dd = String(currentDate.getDate()).padStart(2, '0');
-      const hh = String(currentDate.getHours()).padStart(2, '0');
-      const min = String(currentDate.getMinutes()).padStart(2, '0');
-      datetimeInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-
-      // ★ changeイベントを発火
-      datetimeInput.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    // 天球を更新
-    updateAllPositions();
-    requestRender();
-  }
-
-  // 日付送りコントロールの初期化
-  function initDateNavigationControls() {
-    const rewindFastBtn = document.getElementById('rewindFastBtn');
-    const rewindBtn = document.getElementById('rewindBtn');
-    const pauseDateBtn = document.getElementById('pauseDateBtn');
-    const forwardBtn = document.getElementById('forwardBtn');
-    const forwardFastBtn = document.getElementById('forwardFastBtn');
-    const todayBtn = document.getElementById('todayBtn');
-
-    if (rewindFastBtn) {
-      rewindFastBtn.addEventListener('click', () => {
-        startDateControl('rewind-fast');
-      });
-    }
-
-    if (rewindBtn) {
-      rewindBtn.addEventListener('click', () => {
-        stopDateControl();
-        changeDateByDays(-1);
-      });
-    }
-
-    if (pauseDateBtn) {
-      pauseDateBtn.addEventListener('click', () => {
-        stopDateControl();
-      });
-    }
-
-    if (forwardBtn) {
-      forwardBtn.addEventListener('click', () => {
-        stopDateControl();
-        changeDateByDays(1);
-      });
-    }
-
-    if (forwardFastBtn) {
-      forwardFastBtn.addEventListener('click', () => {
-        startDateControl('forward-fast');
-      });
-    }
-
-    if (todayBtn) {
-      todayBtn.addEventListener('click', () => {
-        resetToToday();
-      });
-    }
-
-    // 日付入力フィールドの変更時に自動送りを停止
-    const datetimeInput = document.getElementById('datetimeInput');
-    if (datetimeInput) {
-      datetimeInput.addEventListener('input', () => {
-        stopDateControl();
-      });
-    }
-
-    // 初期状態: ■ボタンを選択状態に
-    updateDateControlButtons();
-  }
-
-  // DOMContentLoaded後にinitApp実行
-  document.addEventListener('DOMContentLoaded', initApp);
-
   initStars().then(() => { requestRender(); });
-
-  // ★★★ 日付送り機能の初期化 ★★★
-  initDateNavigationControls();
 }
 
 // DOMContentLoaded後にinitApp実行

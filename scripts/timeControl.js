@@ -174,7 +174,6 @@
             window.Sphere10.setDate(date);
         }
         updateDisplay(date);
-        syncToLegacyInput(date);
     }
 
     // Update the 5 split inputs
@@ -187,20 +186,7 @@
         valMinute.value = String(date.getMinutes()).padStart(2, '0');
     }
 
-    // Keep compatibility with hidden input for chart.js
-    function syncToLegacyInput(date) {
-        const legacyInput = document.getElementById('datetimeInput');
-        if (legacyInput) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            const h = String(date.getHours()).padStart(2, '0');
-            const min = String(date.getMinutes()).padStart(2, '0');
-            legacyInput.value = `${y}-${m}-${d}T${h}:${min}`;
-            legacyInput.dispatchEvent(new Event('change'));
-            legacyInput.dispatchEvent(new Event('input'));
-        }
-    }
+
 
     function setToday() {
         stopPlayback();

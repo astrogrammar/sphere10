@@ -1,5 +1,5 @@
 // ────────────────────────────────────────────────────────────────
-// 2022-11-06
+// 2025-11-06
 // 
 // ────────────────────────────────────────────────────────────────
 (() => {
@@ -16,20 +16,20 @@
 
   // 10天体（表示順は任意、記号は度数非表示）
   const PLANETS = [
-    { key: 'sun',     glyph: '☉' },
-    { key: 'moon',    glyph: '☽' },
+    { key: 'sun', glyph: '☉' },
+    { key: 'moon', glyph: '☽' },
     { key: 'mercury', glyph: '☿' },
-    { key: 'venus',   glyph: '♀' },
-    { key: 'mars',    glyph: '♂' },
+    { key: 'venus', glyph: '♀' },
+    { key: 'mars', glyph: '♂' },
     { key: 'jupiter', glyph: '♃' },
-    { key: 'saturn',  glyph: '♄' },
-    { key: 'uranus',  glyph: '♅' },
+    { key: 'saturn', glyph: '♄' },
+    { key: 'uranus', glyph: '♅' },
     { key: 'neptune', glyph: '♆' },
-    { key: 'pluto',   glyph: '♇' },
+    { key: 'pluto', glyph: '♇' },
   ];
 
   // サイン記号（♈︎=0, ♉︎=1, ..., ♓︎=11）
-  const SIGN_GLYPHS = ['♈︎','♉︎','♊︎','♋︎','♌︎','♍︎','♎︎','♏︎','♐︎','♑︎','♒︎','♓︎'];
+  const SIGN_GLYPHS = ['♈︎', '♉︎', '♊︎', '♋︎', '♌︎', '♍︎', '♎︎', '♏︎', '♐︎', '♑︎', '♒︎', '♓︎'];
 
   // ★ ADDED: トロピカル/サイデリアル切り替え
   const AYANAMSHA = 25; // サイデリアル方式のオフセット（度）
@@ -39,9 +39,11 @@
   const deg2rad = d => d * Math.PI / 180;
 
   function getDateFromPage() {
-    const el = document.getElementById('datetimeInput');
-    if (el && el.value) return new Date(el.value);
-    return new Date();
+    // API経由での取得を唯一の正（Single Source of Truth）とする
+    if (window.Sphere10 && typeof window.Sphere10.getDate === 'function') {
+      return window.Sphere10.getDate();
+    }
+    return new Date(); // 万が一のフォールバック
   }
   function getLatitude() {
     const el = document.getElementById('latitudeInput');
@@ -136,7 +138,7 @@
     const R = Math.min(W, H) / 2 - 10;
 
     // Step 4 要件：半径設定
-    const SIGN_RING_R   = 0.95 * R;  // 外周（サインリング）
+    const SIGN_RING_R = 0.95 * R;  // 外周（サインリング）
     const PLANET_RING_R = 0.65 * R;  // 内周（惑星リング）
 
     ctx.save();
@@ -166,13 +168,13 @@
     if (lunarOrbitToggle && lunarOrbitToggle.checked && window.LunarOrbit) {
       const JD = window.julianDate || 2451545.0;
       const points = window.LunarOrbit.generateLunarOrbitPoints(5, JD);
-      
+
       ctx.save();
       ctx.translate(cx, cy);
-      
+
       ctx.beginPath();
       let started = false;
-      
+
       for (const p of points) {
         // 黄道座標（λ, β）を2D極座標に変換
         // 黄経λを角度、黄緯βを半径のオフセットとして使用
@@ -182,7 +184,7 @@
         const r = SIGN_RING_R * 0.95 + radiusOffset;
         const x = r * Math.cos(angleRad);
         const y = r * Math.sin(angleRad);
-        
+
         if (!started) {
           ctx.moveTo(x, y);
           started = true;
@@ -190,14 +192,14 @@
           ctx.lineTo(x, y);
         }
       }
-      
+
       ctx.closePath();
       ctx.strokeStyle = '#999999';
       ctx.lineWidth = 0.8;
       ctx.globalAlpha = 0.8;
       ctx.stroke();
       ctx.globalAlpha = 1.0;
-      
+
       ctx.restore();
     }
 
@@ -210,7 +212,7 @@
     // ★ ADDED: サイデリアル方式対応
     const isSidereal = getIsSidereal();
     const offset = isSidereal ? AYANAMSHA : 0;
-    
+
     for (let i = 0; i < 12; i++) {
       // ♈︎を9時位置（180°）に固定し、時計回りに配置
       // i=0 → 180°（9時）, i=1 → 150°, i=2 → 120°, ...
@@ -225,7 +227,7 @@
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
-      ctx.strokeStyle =  'rgba(255, 255, 255, 0.5)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
       ctx.stroke();
 
       // サイン記号（各ハウスの中央）
@@ -259,7 +261,8 @@
       // +90° → radius 115% (outer)
       //   0° → radius 100% (baseline)
       // -90° → radius  85% (inner)
-      const latScale = 1 + (lat / 90) * 5.0;
+      // [Fix] Correct scaling factor from 2.3 (typo) to 0.15
+      const latScale = 1 + (lat / 90) * 2.3;
       const r = PLANET_RING_R * latScale;
 
       const x = cx + r * Math.cos(angleRad);
@@ -315,7 +318,7 @@
     btn.setAttribute('title', 'Horoscope (Ctrl+⌘+H)');
     btn.setAttribute('aria-label', 'Toggle horoscope overlay');
     document.body.appendChild(btn);
-    
+
     // ★ ADDED: T/Sトグルボタン（トロピカル/サイデリアル切り替え）
     const zodiacBtn = document.createElement('button');
     zodiacBtn.id = 'toggleZodiacSystemBtn';
@@ -377,12 +380,12 @@
       if (typeof window.isSidereal !== 'undefined') {
         window.isSidereal = !window.isSidereal;
         zodiacBtn.textContent = window.isSidereal ? 'S' : 'T';
-        
+
         // sphere10.jsの再描画をトリガー
         if (typeof window.requestRender === 'function') {
           window.requestRender();
         }
-        
+
         // chartCanvasも更新
         if (visible) {
           renderOnce(true);
@@ -399,16 +402,12 @@
       }
     });
 
-    // 日時変更で再描画（表示時のみ、強制再計算）
-    const dt = document.getElementById('datetimeInput');
-    if (dt) {
-      const re = async () => {
-        if (!canvas || canvas.style.display === 'none') return;
-        await renderOnce(true);  // 日時変更時は強制再計算
-      };
-      dt.addEventListener('change', re);
-      dt.addEventListener('input', re);
-    }
+    // [New] Modern Event Listener (Event-Driven)
+    window.addEventListener('sphere10:update', async () => {
+      // 非表示時は更新しない（パフォーマンス最適化）
+      if (!canvas || canvas.style.display === 'none') return;
+      await renderOnce(true);
+    });
 
     // リサイズで再描画（キャッシュ使用）
     window.addEventListener('resize', () => {
