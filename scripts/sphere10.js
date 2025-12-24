@@ -1,7 +1,5 @@
-// 2512151255
+// 251224-1137
 // Sphere10 ver.3.0 - 天球シミュレーター
-// 古典占星術向けの3D天球表示アプリケーション
-
 // ========================================
 // 定数定義
 // ========================================
@@ -2498,14 +2496,21 @@ window.Sphere10 = window.Sphere10 || {};
 window.Sphere10.setDate = function (date) {
   if (date instanceof Date && !isNaN(date)) {
     // sphere10.js のグローバル変数 currentDate を更新
-    // 注意: currentDate がこのファイルのトップレベルで定義されていることを前提としています
     if (typeof currentDate !== 'undefined') {
       currentDate = date;
     }
 
     // 天体位置計算と描画リクエスト
-    if (typeof updateCelestialPositions === 'function') updateCelestialPositions();
-    if (typeof requestRender === 'function') requestRender();
+    // [Fix] updateCelestialPositions -> updateAllPositions に修正
+    if (typeof updateAllPositions === 'function') {
+        updateAllPositions();
+    } else {
+        console.warn('Sphere10: updateAllPositions is not defined');
+    }
+
+    if (typeof requestRender === 'function') {
+        requestRender();
+    }
   }
 };
 
