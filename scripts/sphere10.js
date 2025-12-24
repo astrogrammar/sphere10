@@ -544,6 +544,15 @@ function initApp() {
   const reverseEWToggle = document.getElementById('reverseEWToggle');
   reverseEWToggle.addEventListener('change', () => { reverseEastWest = reverseEWToggle.checked; saveSettings(); requestRender(); }); // ★ MODIFIED (Phase 1)
 
+  // ★★★ Aspect Rays 設定 ★★★
+  const aspectToggle = document.getElementById('aspectToggle');
+  let aspectVisible = false;
+  aspectVisible = setupPersistentToggle(aspectToggle, 'showAspects', false, (value, isInitial) => {
+    if (!isInitial) {
+      requestRender();
+    }
+  });
+
   // ★★★ 設定読み込みとUI同期 ★★★
   loadSettings(); // 保存された設定を読み込み
 
