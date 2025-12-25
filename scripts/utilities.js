@@ -381,3 +381,83 @@
     }
     window.Sphere10Utils = Utilities;
 })();
+
+// --- 天球自動回転機能 (Auto Rotation) v1.1 ---
+(function () {
+    window.isAutoRotating = false;
+    let rotationHook = null;
+
+    // 1. キーボードショートカット (Mac: Option+Shift+R / Win: Alt+Shift+R)
+    window.addEventListener('keydown', (e) => {
+        // Capture phase: true で確実にイベントを拾う
+        if (e.altKey && e.shiftKey && e.code === 'KeyR') {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleAutoRotation();
+        }
+    }, true);
+
+    // 2. iPad用ジェスチャー (2本指トリプルタップ)
+    const canvas = document.getElementById('sky');
+    if (canvas) {
+        let twoFingerTapCount = 0;
+        let lastTapTime = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                const now = Date.now();
+                if (now - lastTapTime < 400) {
+                    twoFingerTapCount++;
+                } else {
+                    twoFingerTapCount = 1;
+                }
+                lastTapTime = now;
+                if (twoFingerTapCount === 3) {
+                    e.preventDefault();
+                    toggleAutoRotation();
+                    twoFingerTapCount = 0;
+                }
+            }
+        }, { passive: false });
+    }
+
+    // 3. 回転ロジック
+    function toggleAutoRotation() {
+        window.isAutoRotating = !window.isAutoRotating;
+        console.log(`[Sphere10] Auto Rotation: ${window.isAutoRotating ? 'ON' : 'OFF'}`);
+
+        // フック登録（初回のみ）
+        if (!rotationHook && window.Sphere10 && window.Sphere10.addDrawHook) {
+            rotationHook = function (ctx, state) {
+                if (!window.isAutoRotating) return;
+
+                const slider = document.getElementById('rotationZSlider');
+                if (slider) {
+                    // 【重要】デフォルトのstep=1だと小数が反映されないため、動的に変更する
+                    if (!slider.step || slider.step === "1") {
+                        slider.step = "0.01";
+                    }
+
+                    // 現在値を取得し加算 (速度調整: 0.15度/フレーム)
+                    let val = parseFloat(slider.value) + 0.15;
+
+                    // ループ処理 (-180 ~ 180)
+                    if (val > 180) val = -180 + (val - 180);
+                    if (val < -180) val = 180 - (Math.abs(val) - 180);
+                    slider.value = val;
+
+                    // sphere10.js のイベントリスナーを発火させて描画を更新
+                    slider.dispatchEvent(new Event('input'));
+                }
+
+                // アニメーションループを維持
+                if (window.requestRender) window.requestRender();
+            };
+            window.Sphere10.addDrawHook(rotationHook);
+        }
+
+        // 停止状態から再開する場合のキック
+        if (window.isAutoRotating && window.requestRender) {
+            window.requestRender();
+        }
+    }
+})();
