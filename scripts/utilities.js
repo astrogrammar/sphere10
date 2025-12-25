@@ -12,7 +12,7 @@
             if (!originalCanvas) return;
 
             // --- 1. 背景色と日時オブジェクトの固定 (同期の要) ---
-            const bgColor = "#333333";
+            const bgColor = "#000000";
             const d = window.Sphere10?.getDate ? window.Sphere10.getDate() : new Date();
 
             // --- 2. 一時的なCanvasの作成 ---

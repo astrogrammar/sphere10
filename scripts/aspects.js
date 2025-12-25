@@ -13,10 +13,10 @@
         fadeOpacity: 0.9,
         flicker: {
             enabled: true,
-            speed: 0.008,     // 呼吸の速さ（少しゆっくりに）
-            intensity: 0.25,  // 揺らぎの幅
-            dustChance: 0.12, // 埃が光る頻度（アップ）
-            dustAlpha: 0.4    // 埃が当たった時の輝度加算
+            speed: 0.003,     // 0.008 呼吸の速さ（少しゆっくりに）
+            intensity: 0.1,  // 0.25 揺らぎの幅
+            dustChance: 0.12, // 0.12 埃が光る頻度（アップ）
+            dustAlpha: 0.12    // 0.4 埃が当たった時の輝度加算
         },
         colors: {
             harmonic: '#00ffff',
@@ -134,7 +134,7 @@
                             ctx.strokeStyle = '#FFFFFF';
                             ctx.shadowColor = CONFIG.colors[asp.type];
                             // Blurも埃のヒットに合わせてブースト
-                            ctx.shadowBlur = (15 + (intensity * 35)) * blurBoost;
+                            ctx.shadowBlur = (15 + (intensity * 20)) * blurBoost;
                             ctx.lineWidth = (1.2 + (intensity * 1.5));
                             ctx.globalAlpha = Math.min(1.0, alpha);
 
@@ -147,4 +147,29 @@
         }
         ctx.restore();
     });
+
+    // キーボードショートカットの登録 (Alt + A)
+    window.addEventListener('keydown', (e) => {
+        if (e.altKey && e.code === 'KeyA') {
+        e.preventDefault(); 
+        e.stopPropagation();
+            
+            const toggle = document.getElementById('aspectToggle');
+            if (toggle) {
+                toggle.checked = !toggle.checked;
+                
+                // Sphere10の localStorage ロジックと同期
+                if (typeof store !== 'undefined' && store.set) {
+                    store.set('sphere10_showAspects', toggle.checked);
+                }
+
+                // 停止中でも即座に表示を切り替えるために requestRender を呼ぶ
+                if (typeof window.requestRender === 'function') {
+                    window.requestRender();
+                }
+                
+                console.log(`[Aspects] Hidden Toggle: ${toggle.checked ? 'ON' : 'OFF'}`);
+            }
+        }
+    }, true); // イベントキャプチャを有効にして確実に拾う
 })();

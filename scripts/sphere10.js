@@ -2244,6 +2244,7 @@ function initApp() {
       ctx: ctx,
       angle: celestialAngle,
       latitude: latitude,
+      longitude: longitude, // ★ ADDED: Fix for topocentric calculation
       width: window.innerWidth,
       height: window.innerHeight,
       rotationZ: rotationZ,
